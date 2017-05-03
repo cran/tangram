@@ -1,0 +1,108 @@
+body .figbody {
+	font-family: Corbel, "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", "DejaVu Sans", "Bitstream Vera Sans", "Liberation Sans", Verdana, "Verdana Ref", sans-serif;
+  font-size: 66%;
+  -webkit-print-color-adjust: exact;
+}
+
+.figure  {  margin-left:  auto;
+			      margin-right: auto;
+}
+.caption { text-align:   left;
+           text-indent: 2em;
+	         padding: 0.5em 0 0.5em 0;
+	         font-weight: bold;
+	         background-color: #f7f4ef !important;
+	         border: 1px solid black;
+	     }
+
+.figbody {
+	text-align:   center;
+  border:       1px solid black
+}
+
+.figbody table {
+  margin: 0;
+  width: 100%;
+}
+
+.figbody td {
+	padding: 0.2em 0.5em 0.2em 0.5em;
+}
+
+.figbody thead tr td
+{
+    font-weight: bold;
+}
+
+.figbody tbody tr:nth-child(odd) {background: #fffbed !important;}
+
+.header td {text-align: center;}
+
+.subheader    { font-size: smaller; }
+.subheader td { text-align: center; /* border-bottom: 1pt solid black; */ }
+
+.subheader em {font-style: normal;}
+
+.header.N:before { content: "(n="; }
+.header.N:after  { content: ")"; }
+
+.quantile {
+  display: flex;
+  flex-direction: row;
+}
+.quantile .q50 {
+  order: 1;
+  padding-right: 0.5em;
+}
+.quantile .q25:before {content: "(";}
+.quantile .q25 {
+  order: 2
+}
+.quantile .q75:before {content: "-";}
+.quantile .q75 {order: 3}
+.quantile .q75:after {content: ")";}
+tbody .variable {
+	float:      left;
+	text-align: left;
+}
+
+.units {
+	float:      right;
+	font-size:  x-small;
+	text-align: right;
+	padding-left: 1em;
+	vertical-align: text-bottom; /* FIXME why doesn't this work */
+}
+
+.fraction {
+  display: flex;
+  flex-direction: row;
+}
+.fraction .numerator   { order: 1 }
+.fraction .denominator:before {content: "/";}
+.fraction .denominator { order: 2; }
+.fraction .ratio       { order: 3; display: none; }
+.fraction .percentage:before {content: "\00A0(";}
+.fraction .percentage  { order: 4; }
+.fraction .percentage:after  {content: ")";}
+
+.statistics .description {font-style: italic;}
+.statistic {padding-right: 0.5em;}
+
+
+td .align{
+	display: inline-block;
+	margin: 0 auto;
+}
+
+.nobr {
+   white-space: nowrap;
+}
+.supsub {
+   display: inline-block;
+   margin: -9em 0;
+   vertical-align: -0.55em;
+   line-height: 1.35em;
+   font-size: 70%;
+   text-align: left;
+}

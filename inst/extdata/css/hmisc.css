@@ -1,0 +1,104 @@
+
+.figure  {  font-family: "Computer Modern Serif", serif;
+            margin-left:  auto;
+			      margin-right: auto;
+			      font-size: 66%;
+  -webkit-print-color-adjust: exact;
+         }
+
+.caption { text-align:   center;
+	         margin-left:  auto;
+	         margin-right: auto;
+	         padding: 1.5em 0 1.5em 0;
+	       }
+
+.figbody {
+		       text-align:   center;
+	         margin-left:  auto;
+	         margin-right: auto;
+	         border-style: double none solid none;
+	         border-width: 3pt 0 1pt 0;
+	         width:        100%;
+         }
+
+.figbody td {
+				      padding: 0.2em 0.5em 0.2em 0.5em;
+            }
+
+.data:hover {
+              background-color:yellow;
+            }
+
+.summaryM {
+	border-spacing: 0;
+}
+
+.subheader    { font-size: smaller; }
+
+.subheader tr { border-collapse: collapse; }
+.subheader td { border-bottom: 1pt solid black; }
+
+.quantile .q25 {
+	font-size: smaller;
+	padding-right: 0.5em;
+}
+
+.quantile .q75 {
+	font-size: smaller;
+	padding-left: 0.5em;
+}
+
+.quantile .q50 {
+  font-weight: bold;
+}
+
+.variable {
+	float:      left;
+	text-align: left;
+}
+
+.units {
+	float:      right;
+	font-size:  x-small;
+	text-align: right;
+	padding-left: 1em;
+	vertical-align: text-bottom; /* FIXME why doesn't this work */
+}
+
+thead .header {font-weight: bold;}
+.header.N  { font-style: italic; }
+.header.N:before { content: "N="; }
+
+
+.fraction .percentage {display: none;}
+.fraction .numerator:before {content: "\00A0";}
+.fraction .numerator { font-size: x-small; vertical-align: super; }
+.fraction .numerator:after {content: " \2044";}
+.fraction .denominator { font-size: x-small; vertical-align: sub;}
+.statistics .description {font-style: italic;}
+.statistic {padding-right: 0.5em;}
+
+td .align{
+	display: inline-block;
+	margin: 0 auto;
+}
+
+.nobr {
+   white-space: nowrap;
+}
+
+.supsub {
+   display: inline-block;
+   margin: -9em 0;
+   vertical-align: -0.55em;
+   line-height: 1.35em;
+   font-size: x-small;
+   text-align: left;
+}
+
+.sup:before {content: "\00A0";}
+.sup { font-size: x-small; vertical-align: super; }
+.sup:after {content: "\2044"; }
+.sub { font-size: x-small; vertical-align: sub;}
+
+
