@@ -1,5 +1,9 @@
 # A Grammar of Tables 'tangram'
 
+## Release Notes
+
+Jun 27 2017 v0.3 A major refactor, cells in the table object are no longer 'special' and are just straight S3 objects. Two adapter layers of code are deleted, interface is stablizing. Used `tangram` as an S3 object and replaced various table generating calls to a single overloaded function.
+
 ## Goal
 
 The idea of creating a quick summary of a data set has been around a good while. The use of a statistical formulas to create summaries exists in SAS in PROC REPORT, and in the R package Hmisc. The SAS has a rich syntax which allows for generation of a wide array of summary tables, but is limited to a subset of SAS functions. The SAS generation is further limited to a fairly crude appearing table, with limited options for output generation. Hmisc offers wonderful output, but is fixed in the analysis that can be performed.
@@ -41,7 +45,7 @@ library(Hmisc)
 
 getHdata(pbc)
 
-table <- summary_table(drug ~ bili + albumin + stage + protime + sex + age + spiders, data = pbc)
+table <- tangram(drug ~ bili + albumin + stage + protime + sex + age + spiders, data = pbc)
 
 table
 html5(table)
@@ -82,8 +86,7 @@ This concludes the syntax phase of compiling a table. The next phase is where se
 
 ## Statistical Analysis and Summary
 
-The user now has the choice what semantic content is desired for constructing the statistical summary. One might appreciate the default summary statistics and asthetic layout of Hmisc. One might want to generate data ready for the New England Journal of Medicine or it might just be statistics about a particular model that is central to the idea.[^1]
-[^1] Idea: Why not take an R model directly as another route to table generation.
+The user now has the choice what semantic content is desired for constructing the statistical summary. One might appreciate the default summary statistics and asthetic layout of Hmisc. One might want to generate data ready for the New England Journal of Medicine or it might just be statistics about a particular model that is central to the idea.
 
 At this point, if statistical *p*-values are to be used a table should have a consistent viewpoint of what the null hypothesis is. A consistent viewpoint is essentially to a readers understanding the collection of information being presented. For example, Hmisc takes the viewpoint that the null hypothesis is indepedence of variables between row and column. Thus the table is exploring what possible relationships exist, and giving the reader a feel for the ranges of the data. Then based on what data type a variable is an appropriate statistical test is chosen.
 

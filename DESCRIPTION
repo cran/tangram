@@ -1,9 +1,10 @@
 Package: tangram
 Title: The Grammar of Tables
-Version: 0.2.6
-Authors@R: c(person("Shawn", "Garbett", email = "Shawn.Garbett@Vanderbilt.edu", role = c("aut", "cre")),
-             person("Thomas", "Stewart", email = "Thomas.Stewart@Vanderbilt.edu", role=c("ctb")),
-             person("Jennifer", "Thompson", email = "jennifer.l.thompson@vanderbilt.edu", role= c("ctb"))
+Version: 0.3
+Authors@R: c(person("Shawn",    "Garbett",  email = "Shawn.Garbett@Vanderbilt.edu",       role = c("aut", "cre")),
+             person("Thomas",   "Stewart",  email = "Thomas.Stewart@Vanderbilt.edu",      role = c("ctb")),
+             person("Jennifer", "Thompson", email = "Jennifer.L.Thompson@Vanderbilt.edu", role = c("ctb")),
+             person("Frank",    "Harrell",  email = "F.Harrell@Vanderbilt.edu",           role = c("ctb"))
              )
 Description: Provides an extensible formula system to quickly and easily create
     production quality tables. The steps of the process are formula parser,
@@ -19,20 +20,24 @@ Description: Provides an extensible formula system to quickly and easily create
     format for use in tracing and tracking are provided.
 Author: Shawn Garbett [aut, cre],
   Thomas Stewart [ctb],
-  Jennifer Thompson [ctb]
+  Jennifer Thompson [ctb],
+  Frank Harrell [ctb]
 Maintainer: Shawn Garbett <Shawn.Garbett@Vanderbilt.edu>
-Depends: R (>= 3.2.3), R6, stringr, base64enc, digest, magrittr
-License: GPL-2
+Depends: R (>= 3.2.3), R6, magrittr
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Suggests: testthat, rms, knitr, rmarkdown, Hmisc
+Imports: stringi, stringr, base64enc, digest, htmltools
 VignetteBuilder: knitr
 RoxygenNote: 6.0.1
-Collate: 'S3-Cell.R' 'hmisc-lm.fit.qr.bare.R' 'hmisc-impute.R'
-        'hmisc-biVar.R' 'hmisc-cut2.R' 'hmisc-in.operator.R' 'typing.R'
-        'hmisc.R' 'html5.R' 'index.R' 'parser.R' 'main.R' 'rmd.R'
-        'table_builder.R' 'rms.R' 'summary.R'
+Collate: 'compile-cell.R' 'helper-format.R' 'compile-typing.R'
+        'parser.R' 'compile.R' 'hmisc-cut2.R' 'hmisc-lm.fit.qr.bare.R'
+        'hmisc-impute.R' 'hmisc-biVar.R' 'compile-hmisc.R'
+        'compile-operators.R' 'compile-post.R' 'compile-rms.R'
+        'render-latex-map.R' 'dplr-latexify.R' 'render-html5.R'
+        'render-index.R' 'render-rmd.R' 'render-summary.R'
 NeedsCompilation: no
-Packaged: 2017-05-03 15:40:26 UTC; garbetsp
+Packaged: 2017-06-27 19:24:51 UTC; garbetsp
 Repository: CRAN
-Date/Publication: 2017-05-03 16:20:59 UTC
+Date/Publication: 2017-06-27 21:22:33 UTC

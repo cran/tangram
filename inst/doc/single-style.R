@@ -7,7 +7,7 @@ data(pbc)
 cat(custom_css("lancet.css"))
 
 ## ---- results="asis"-----------------------------------------------------
-html5(summary_table("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc),
+html5(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc),
       fragment=TRUE, caption = "Hmisc::PBC", id="tbl2")
 
 ## ---- results='asis'-----------------------------------------------------
@@ -16,7 +16,7 @@ y <- round(rnorm(375, 80,  9))
 y[rbinom(375, 1, prob=0.05)] <- NA
 attr(x, "label") <- "Global score, 3m"
 attr(y, "label") <- "Global score, 12m"
-html5(summary_table(1 ~ x+y,
+html5(tangram(1 ~ x+y,
                     data.frame(x=x, y=y),
                     after=hmisc_intercept_cleanup),
       fragment=TRUE, caption="Intercept", id="tbl5")
