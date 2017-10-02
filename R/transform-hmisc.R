@@ -23,6 +23,10 @@
 #' @param row The row variable object to use (numerical)
 #' @param column The column variable to use (categorical)
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
+#' @param msd logical; Include mean and standard deviation with quantile statistics
+#' @param quant numeric; Vector of quantiles to include. Should be an odd number since the middle value is highlighted on display.
+#' @param overall logical; Include overall summary statistics for a categorical column
+#' @param ... absorbs additional arugments. Unused at present.
 #' @return The modified table object
 #' @export
 #' @importFrom magrittr "%>%"
@@ -35,13 +39,25 @@
 #' @importFrom stats cor
 #' @importFrom stats cor.test
 #' @importFrom stats na.omit
-summarize_kruskal_horz <- function(table, row, column, pformat=NULL)
+#' @importFrom stats wilcox.test
+summarize_kruskal_horz <- function(table,
+                                   row,
+                                   column,
+                                   pformat=NULL,
+                                   msd=FALSE,
+                                   quant=c(0.25, 0.5, 0.75),
+                                   overall=NULL,
+                                   ...)
 {
   if(is.null(pformat)) pformat <- "%1.3f"
 
+  # Treat overall as a label if it's character
+  overall_label <- if(is.null(overall)) "" else { if(is.character(overall)) overall else "Overall" }
+  overall       <- !is.null(overall)
+
   datar      <- row$data
   datac      <- as.categorical(column$data)
-  categories <- levels(datac)
+  categories <- if(overall) c(levels(datac), overall_label) else levels(datac)
 
   format <- ifelse(is.na(row$format), format_guess(datar), row$format)
 
@@ -50,25 +66,37 @@ summarize_kruskal_horz <- function(table, row, column, pformat=NULL)
     cell_n(length(datac[datac == cat & !is.na(datac)]), subcol=cat)
   })
 
-  # Kruskal-Wallis via F-distribution
-  test  <- suppressWarnings(spearman2(datac, datar, na.action=na.retain))
-  fstat <- cell_fstat(f         = render_f(test['F'], "%.2f"),
-                      df1       = test['df1'],
-                      df2       = test['df2'],
-                      p         = render_f(test['P'], pformat),
-                      reference = "1")
+  if(overall) subN[[length(subN)+1]] <- cell_n( sum(!is.na(column$data)), subcol="Overall")
 
-  table                                          %>%
+  # Kruskal-Wallis via F-distribution
+  stat <- if(length(categories) == 1)
+  {
+    cell(suppressWarnings(wilcox.test(datar)), pformat=pformat, reference="3")
+  }
+  else
+  {
+    test  <- suppressWarnings(spearman2(datac, datar, na.action=na.retain))
+    cell_fstat(f         = render_f(test['F'], "%.2f"),
+               df1       = test['df1'],
+               df2       = test['df2'],
+               p         = render_f(test['P'], pformat),
+               reference = "1")
+  }
+
+  tbl <- table                                   %>%
   row_header(derive_label(row))                  %>%
   col_header("N", categories, "Test Statistic")  %>%
   col_header("",  subN,       ""              )  %>%
   add_col(cell_n(sum(!is.na(datar)),name=NULL))            %>%
   table_builder_apply(categories, function(tbl, category) {
-     x <- datar[datac == category]
+     x  <- if(category == overall_label) datar else datar[datac == category]
 
-     add_col(tbl, cell_iqr(x, format, na.rm=TRUE, subcol=category))
-  })                                             %>%
-  add_col(fstat)
+     add_col(tbl, cell_iqr(x, format, na.rm=TRUE, subcol=category, msd=msd, quant=quant))
+  })
+
+  tbl <- add_col(tbl, stat)
+
+  tbl
 }
 
 #' Create a summarization for a categorical row versus a numerical column
@@ -80,9 +108,10 @@ summarize_kruskal_horz <- function(table, row, column, pformat=NULL)
 #' @param row The row variable object to use (categorical)
 #' @param column The column variable to use (numerical)
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
+#' @param ... absorbs additional arugments. Unused at present.
 #' @return The modified table object
 #' @export
-summarize_kruskal_vert <- function(table, row, column, pformat)
+summarize_kruskal_vert <- function(table, row, column, pformat=NULL, ...)
 {
   if(is.null(pformat)) pformat <- "%1.3f"
 
@@ -115,70 +144,6 @@ summarize_kruskal_vert <- function(table, row, column, pformat)
   add_col(fstat)
 }
 
-#' Create a summarization for a binomial row versus a categorical column
-#'
-#' Given a row and column object from the parser apply a chi^2 test and output
-#' the results (1) X (N,#col categories ,statistic) format.
-#'
-#' @param table The table object to modify
-#' @param row The row variable object to use (binomial)
-#' @param column The column variable to use (categorical)
-#' @param pformat numeric or character; A formatting directive to be applied to p-values
-#' @return The modified table object
-#' @export
-summarize_chisq_single <- function(table, row, column, pformat=NULL)
-{
-  if(is.null(pformat)) pformat <- "%1.3f"
-
-  datar          <- as.categorical(row$data)
-  datac          <- as.categorical(column$data)
-
-  row_category   <- levels(datar)[2]
-  col_categories <- levels(datac)
-
-  # Compute N values for each category
-  subN <- lapply(levels(datac), FUN=function(cat){
-    cell_n( length(datac[datac == cat & !is.na(datac)]), subcol=cat)
-  })
-
-  # Chi^2 test
-  y        <- table(datar, datac, useNA="no")
-  validcol <- which(!apply(y,2,FUN = function(x){all(x == 0)})) # Negative logic deals with NAs
-  validrow <- which(!apply(y,1,FUN = function(x){all(x == 0)}))
-  y        <- y[validrow,validcol]
-  test     <- suppressWarnings(chisq.test(y, correct=FALSE))
-
-  # More complex name derivation
-  name <- row$name()
-  try({
-        l2 <- attr(row$data, "label")
-        if(!is.null(l2)) {name<-l2}
-  })
-  lbl <- paste(name,":", row_category)
-
-  # Now construct the table by add rows to each column
-  table                                                      %>%
-  col_header("N", col_categories, "Test Statistic")          %>%
-  col_header("",  subN,           "")                        %>%
-  row_header(lbl)                                            %>%
-  add_col(sum(!is.na(datar) & !is.na(datac)))                %>%
-  table_builder_apply(col_categories, FUN=function(table, col_category) {
-    denominator <- length(datac[datac == col_category & !is.na(datac)])
-    numerator   <- length(datac[datac == col_category &
-                                datar == row_category &
-                                !is.na(datac)         &
-                                !is.na(datar)])
-    if(numerator == 0)
-        add_row(table, "") %>% new_col()
-    else
-        add_row(table,
-                cell_fraction(numerator, denominator, format=row$format,
-                              subcol=col_category, subrow=row_category)) %>%
-        new_col()
-  })                                                         %>%
-  add_row(cell(test, reference="2", pformat=pformat))
-}
-
 #' Create a summarization for a categorical row versus a categorical column
 #'
 #' Given a row and column object from the parser apply a chi^2 test and output
@@ -188,62 +153,107 @@ summarize_chisq_single <- function(table, row, column, pformat=NULL)
 #' @param row The row variable object to use (categorical)
 #' @param column The column variable to use (categorical)
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
+#' @param collapse_single logical; default TRUE. Categorical variables with a two values collapse to single row.
+#' @param overall logical; Include the overall summary column
+#' @param ... absorbs extra parameters. Currently unused.
 #' @return The modified table object
 #' @export
-summarize_chisq <- function(table, row, column, pformat=NULL)
+summarize_chisq <- function(table,
+                            row,
+                            column,
+                            pformat=NULL,
+                            collapse_single=TRUE,
+                            overall=NULL,
+                            ...)
 {
   if(is.null(pformat)) pformat <- "%1.3f"
 
-  datar          <- as.categorical(row$data)
-  datac          <- as.categorical(column$data)
+  grid          <- table(as.categorical(row$data), as.categorical(column$data), useNA="no")
+  validcol      <- which(!apply(grid,2,FUN = function(x){all(x == 0)}))
+  validrow      <- which(!apply(grid,1,FUN = function(x){all(x == 0)}))
+  test          <- if(length(grid[validrow,validcol]) < 2) NA else suppressWarnings(chisq.test(grid[validrow,validcol], correct=FALSE))
+  ncol          <- dim(grid)[2]
+  nrow          <- dim(grid)[1]
 
-  if(length(levels(datar))==2) return(summarize_chisq_single(table, row, column, pformat))
+  denominators  <- matrix(rep(colSums(grid), nrow), ncol=ncol, byrow=TRUE)
+  rowlabels     <- rownames(grid)
 
-  row_categories <- levels(datar)
-  col_categories <- levels(datac)
+  # Compute overall N values for each category
+  # length(datac[datac == cat & !is.na(datac)])
+  subN <- lapply(colnames(grid), FUN=function(cat)
+    cell_n( sum(column$data == cat, na.rm=TRUE), subcol=cat)
+  )
 
-  # Compute N values for each category
-  subN <- lapply(levels(datac), FUN=function(cat){
-    cell_n(length(datac[datac == cat & !is.na(datac)]), subcol=cat)
-  })
+  if(!is.null(overall))
+  {
+    denominators <- cbind(denominators, rep(sum(grid), nrow))
+    grid         <- cbind(grid,         rowSums(grid))
+    colnames(grid)[ncol+1] <- if(is.character(overall)) overall else "Overall"
+    subN[[ncol+1]] <- cell_n( sum(!is.na(column$data)), subcol="Overall")
+    ncol         <- ncol + 1
+  }
 
-  # Chi^2 test
-  y        <- table(datar,datac, useNA="no")
-  validcol <- which(!apply(y,2,FUN = function(x){all(x == 0)}))
-  validrow <- which(!apply(y,1,FUN = function(x){all(x == 0)}))
-  y        <- y[validrow,validcol]
-  test     <- suppressWarnings(chisq.test(y, correct=FALSE))
+  # Collapse to a single line when requested for 2 binomial factors
+  if(collapse_single && dim(grid)[1]==2)
+  {
+    # Why is this so difficult?
 
-  labels   <- lapply(row_categories, FUN=function(x) paste("  ", x))
+    # More complex name derivation
+    name <- row$name()
+    try({
+          l2 <- attr(row$data, "label")
+          if(!is.null(l2)) {name<-l2}
+    })
 
-  # Now construct the table by add rows to each column
-  table                                                      %>%
-  col_header("N", col_categories, "Test Statistic")          %>%
-  col_header("", subN, "")                                   %>%
-  row_header(derive_label(row))                              %>%
-  table_builder_apply(labels, FUN=
-    function(tbl, row_name) {tbl %>% row_header(row_name)})  %>%
-  add_col(sum(!is.na(datar) & !is.na(datac)))                %>%
-  table_builder_apply(col_categories, FUN=function(table, col_category) {
-    denominator <- length(datac[datac == col_category & !is.na(datac)])
-    table <- add_row(table, "")
-    table_builder_apply(table, row_categories, FUN=
-      function(table, row_category) {
-          numerator <- length(datac[datac == col_category &
-                                    datar == row_category &
-                                    !is.na(datac)         &
-                                    !is.na(datar)])
-          if(numerator == 0) add_row(table, "")
-          else
-            add_row(
-              table,
-              cell_fraction(numerator, denominator, format=row$format,
-                            subcol=col_category, subrow=row_category)
-          )
-      }) %>%
-    new_col()
-  })                                                         %>%
-  add_row(cell(test, reference="2",pformat=pformat),rep("", length(row_categories)))
+    # Select part of grid table, then do all the munging to get it back in form
+    x <- matrix(grid[2,], nrow=1)
+    colnames(x) <- colnames(grid)
+    rownames(x) <- paste(name,":", rownames(grid)[2])
+    grid <- x
+    denominators <- matrix(denominators[2,], nrow=1)
+    nrow <- 1
+  }
+  else # Give a good indent otherwise
+  {
+    rownames(grid)   <- lapply(rownames(grid), FUN=function(x) paste("  ", x))
+  }
+
+  # Column Headers
+  table <- col_header(table, "N", colnames(grid), "Test Statistic")
+  table <- col_header(table, "", subN, "")
+
+  # Row Headers
+  if(nrow > 1) table <- row_header(table, derive_label(row)) # Deal with single
+  for(nm in rownames(grid)) table <- row_header(table, nm)
+
+  # The N value
+  table <- add_col(table, sum(!is.na(row$data)))
+
+  # Now loop the grid into the table as a fraction
+  for(j in 1:ncol)
+  {
+    if(nrow > 1) table <- add_row(table, "")
+    for(i in 1:nrow)
+    {
+      table <-
+        if(denominators[i,j] == 0)
+          add_row(table, "")
+        else
+          add_row(table,
+                  cell_fraction(grid[i,j], denominators[i,j],
+                                format=row$format,
+                                subcol=colnames(grid)[i], subrow=rownames(grid)[j]))
+    }
+    table <- new_col(table)
+  }
+
+  # Finally add the stats
+  table <- add_row(table, cell(test, reference="2", pformat=pformat))
+
+  # Fill in blank cells in stats column
+  if(nrow > 1) table <- add_row(table, rep("", nrow))
+
+  table
 }
 
 #' Create a summarization for a numerical row versus a numerical column
@@ -255,9 +265,10 @@ summarize_chisq <- function(table, row, column, pformat=NULL)
 #' @param row The row variable object to use (numerical)
 #' @param column The column variable to use (numerical)
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
+#' @param ... absorbs additional arguments. Unused at present.
 #' @return The modified table object
 #' @export
-summarize_spearman <- function(table, row, column, pformat=NULL)
+summarize_spearman <- function(table, row, column, pformat=NULL, ...)
 {
   if(is.null(pformat)) pformat <- "%1.3f"
 
@@ -317,18 +328,11 @@ hmisc_style <- list(
   Type        = hmisc_data_type,
   Numerical   = list(
                   Numerical   = summarize_spearman,
-                  Categorical = summarize_kruskal_horz,
-                  Factors     = apply_factors
+                  Categorical = summarize_kruskal_horz
             ),
   Categorical = list(
                   Numerical   = summarize_kruskal_vert,
-                  Categorical = summarize_chisq,
-                  Factors     = apply_factors
-            ),
-  Factors     = list(
-                  Numerical   = apply_factors,
-                  Categorical = apply_factors,
-                  Factors     = apply_factors
+                  Categorical = summarize_chisq
             ),
   Footnote    = "N is the number of non-missing value. ^1^Kruskal-Wallis test. ^2^Pearson test"
 )

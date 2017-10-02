@@ -31,7 +31,7 @@
 derive_label <- function(node)
 {
   l <- node$name()
-  units <- NA
+  units <- NULL
   try({
         l2 <- attr(node$data, "label")
         if(!is.null(l2))
@@ -42,7 +42,7 @@ derive_label <- function(node)
           {
             l <- l2
           } else {
-            l     <- u2[1,2]
+            l     <- trimws(u2[1,2])
             units <- u2[1,3]
           }
         }
@@ -345,4 +345,28 @@ add_row <- function(table_builder, ...)
     cursor_down()
   })
 }
+#'
+#' #' @export
+#' cbind.tangram <- function(..., deparse.level=1)
+#' {
+#'
+#' }
+#'
+#' #' @export
+#' cbind.table_builder <- function(..., deparse.level=1)
+#' {
+#'
+#' }
+#'
+#' #' @export
+#' rbind.tangram <- function(..., deparse.level=1)
+#' {
+#'
+#' }
+#'
+#' #' @export
+#' rbind.table_builder <- function(..., deparse.level=1)
+#' {
+#'
+#' }
 

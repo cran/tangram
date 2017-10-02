@@ -1,16 +1,16 @@
 ## ----setup, include=FALSE------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
-data(pbc)
 library(tangram)
+data(pbc)
 
 ## ----pbc, comment=""-----------------------------------------------------
 tangram("drug ~ bili + albumin + stage::Categorical + protime + sex + age + spiders", pbc)
 
 ## ---- results="asis"-----------------------------------------------------
-rmd(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc))
+#rmd(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc))
 
 ## ---- results="asis"-----------------------------------------------------
-html5(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc),
+html5(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc, msd=TRUE, quant=seq(0, 1, 0.25)),
       fragment=TRUE, inline="hmisc.css", caption = "HTML5 Table Hmisc Style", id="tbl2")
 
 ## ---- results="asis"-----------------------------------------------------

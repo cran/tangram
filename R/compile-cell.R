@@ -96,7 +96,7 @@ cell.default <- function(x, ...)
   add_class   <- if("class" %in% names(attribs)) attribs[['class']] else NULL
   final_class <- if(inherits(x, "cell")) c(add_class, class(x)) else c(add_class, "cell", class(x))
   for(i in names(attribs)) attr(x, i) <- attribs[[i]]
-  class(x) <- final_class
+  class(x) <- unique(final_class)
   x
 }
 
@@ -142,6 +142,7 @@ cell_label <- function(text, units=NULL, class=NULL, ...)
 #' cell_header("Concentration", "mg/dl", src="A")
 cell_header <- function(text, units=NULL, class=NULL, ...)
 {
+  if(is.null(units)) units <- attr(text, "units")
   cell(text,
        class=c(class, "cell_header", "cell_label"),
        units=units,
@@ -166,6 +167,7 @@ cell_header <- function(text, units=NULL, class=NULL, ...)
 #' cell_subheader("Concentration", "mg/dl", src="A")
 cell_subheader <- function(text, units=NULL, class=NULL, ...)
 {
+  if(is.null(units)) units <- attr(text, "units")
   cell(text,
        class=c(class, "cell_subheader", "cell_header", "cell_label"),
        units=units,
@@ -181,11 +183,14 @@ cell_subheader <- function(text, units=NULL, class=NULL, ...)
 #' @param na.rm logical; if true, any NA and NaN's are removed from x before the quantiles are computed.
 #' @param names logical; if true, the result has a names attribute. Set to FALSE for speedup with many probs.
 #' @param type integer; specify algorithm to use in constructing quantile. See quantile for more information.
+#' @param msd logical; compute an msd attribute containing mean and standard deviation
+#' @param quant numeric; The quantiles to display. Should be an odd length vector, since the center value is highlighted.
 #' @param ... additional arguments to constructing cell
 #'
 #' @return A cell_quantile object.
 #' @export
 #' @importFrom stats quantile
+#' @importFrom stats sd
 #' @examples
 #' require(stats)
 #' cell_iqr(rnorm(100), '3')
@@ -194,13 +199,19 @@ cell_iqr <- function(x,
                      na.rm  = TRUE,
                      names  = FALSE,
                      type   = 8,
+                     msd    = FALSE,
+                     quant  = c(0.25, 0.50, 0.75),
                      ...
                           )
 {
-  x <- quantile(x,  c(0.25, 0.50, 0.75), na.rm, names, type)
+  if(length(quant) %% 2 == 0) stop("cell_iqr quant argument must be an odd length")
 
-  if(is.na(format)) format <- format_guess(x)
-  ql <- sapply(x, function(x) render_f(x, format))
+  y <- quantile(x, quant, na.rm, names, type)
+
+  if(is.na(format)) format <- format_guess(y)
+  ql <- sapply(y, function(x) render_f(x, format))
+  if(msd) attr(ql, "msd") <- c(render_f(mean(x, na.rm=TRUE), format),
+                               render_f(sd(x, na.rm=TRUE) / sqrt(length(x)), format))
   cell(ql, class="cell_iqr", ...)
 }
 
@@ -423,6 +434,7 @@ cell.aov <- function(x, pformat="%1.3f", ...)
 #' @param x The htest object to convert to a rendereable cell
 #' @param format numeric or character; A formatting directive applied to statistics
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
+#' @param reference numeric or character; A reference indicator for this test
 #' @param ... additional specifiers for identifying this cell (see key)
 #' @return an S3 rendereable cell that is a hypothesis test
 #' @export
@@ -431,14 +443,17 @@ cell.aov <- function(x, pformat="%1.3f", ...)
 #' cell(cor.test(rnorm(10), rnorm(10)))
 #' cell(chisq.test(rpois(10,1)))
 #' cell(t.test(rnorm(10), rnorm(10)))
-cell.htest <- function(x, format=2, pformat="%1.3f", ...)
+cell.htest <- function(x, format=2, pformat="%1.3f", reference=NULL, ...)
 {
+  #reference <- if(is.null(reference)) "" else paste0("^^",reference, "^^")
   if(names(x$statistic) == "X-squared")
     cell_chi2(render_f(x$statistic, format), x$parameter[1], render_f(x$p.value, pformat), ...)
   else if(x$method == "Spearman's rank correlation rho")
     cell_spearman(as.character(x$statistic), render_f(x$estimate,format), render_f(x$p.value, pformat), ...)
-#  else if(x$statistic) == "V") # wilcox.test
-# ????
+  else if(names(x$statistic) == "V") # wilcox.test
+    cell(paste0("V=", x$statistic, ", P=", render_f(x$p.value, pformat)),
+         reference=reference,
+         class="statistics", ...)
   else
     cell_studentt(render_f(x$statistic, format), render_f(x$parameter[1],pformat), render_f(x$p.value, pformat), ...)
 }

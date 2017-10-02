@@ -189,7 +189,7 @@ table_flatten <- function(table)
   new_tbl
 }
 
-cell_create_table <- function(ast, transforms, ...)
+cell_create_table <- function(ast, transforms, digits, ...)
 {
   elements <- ast$terms()
 
@@ -211,6 +211,8 @@ cell_create_table <- function(ast, transforms, ...)
       transform <- if("list" %in% class(transforms[[rowtype]]))
         transforms[[rowtype]][[coltype]] else
         transforms[[rowtype]]
+
+      if(is.null(row$format) || is.na(row$format)) row$set_format(digits)
 
       tbl[[row_idx]][[col_idx]] <<- transform(table_builder(row$value, column$value, TRUE), row, column, ...)$table
     })
@@ -242,6 +244,7 @@ cell_create_table <- function(ast, transforms, ...)
 #' @param colheader character; Use as column headers in final table
 #' @param cols numeric; An integer of the number of cols to create
 #' @param data data.frame; data to use for rendering tangram object
+#' @param digits numeric; default number of digits to use for display of numerics
 #' @param embedded logical; Will this table be embedded inside another
 #' @param footnote character; A string to add to the table as a footnote.
 #' @param transforms list of lists of functions; that contain the transformation to apply for summarization
@@ -270,21 +273,31 @@ tangram <- function(x, ...)
 tangram.numeric <- function(x, cols, embedded=FALSE, ...)
 {
   # A list of lists
-  cell(lapply(1:x, function(x) as.list(rep(cell(""), cols))),
-       class="tangram",
-       embedded = embedded)
+  result <- lapply(1:x, function(x) {lapply(1:cols, function(y) cell("")) })
+  class(result) <- c("tangram", "list")
+  attr(result, "embedded") <- embedded
+
+  result
 }
 
 #' @rdname tangram
 #' @export
 tangram.data.frame <- function(x, colheader=NA, ...)
 {
+  cls <- sapply(names(x), function(y) class(x[1,y]))
+  # Check for non-character
+  if(any(!cls %in% c("character", "NULL") ))
+  {
+    nms <- names(cls)[cls %in% c("integer", "factor", "numeric")]
+    return(tangram(paste0("1~", paste0(nms, collapse='+')), x, quant=seq(0,1,0.25), msd=TRUE, ...))
+  }
+
   roffset <- if(any(is.na(colheader))) 1 else 2
   width   <- length(colnames(x)) + 1
   height  <- length(rownames(x)) + roffset
   tbl     <- tangram(height, width, FALSE)
 
-  tbl[[1]][[1]] <- cell_header("")
+
   if(!any(is.na(colheader))) tbl[[2]][[1]] <- cell_subheader("")
 
   sapply(2:width, FUN=function(col_idx) {
@@ -300,16 +313,20 @@ tangram.data.frame <- function(x, colheader=NA, ...)
     })
   })
 
-  sapply((roffset+1):height, FUN=function(row_idx) {
-    tbl[[row_idx]][[1]] <<- cell_header(rownames(x)[row_idx-roffset])
-  })
+  if(any(rownames(x) != as.character(1:(height - 1))))
+  {
+    tbl[[1]][[1]] <- cell_header("")
+    sapply((roffset+1):height, FUN=function(row_idx) {
+      tbl[[row_idx]][[1]] <<- cell_header(rownames(x)[row_idx-roffset])
+    })
+  }
 
   tbl
 }
 
 #' @rdname tangram
 #' @export
-tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, ...)
+tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, digits=NA, ...)
 {
   # Helper function for single transform function
   if(!inherits(transforms, "list"))
@@ -324,6 +341,7 @@ tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, ...)
 
   tbl <- cell_create_table(Parser$new()$run(x)$reduce(data)$distribute(),
                            transforms,
+                           digits,
                            ...)
 
   if(suppressWarnings(all(is.na(after)))) {return(tbl)}
@@ -336,8 +354,8 @@ tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, ...)
 
 #' @rdname tangram
 #' @export
-tangram.character <- function(x, data, transforms=hmisc_style, after=NA, ...)
+tangram.character <- function(x, data, transforms=hmisc_style, after=NA, digits=NA, ...)
 {
-  tangram.formula(x, data, transforms, after, ...)
+  tangram.formula(x, data, transforms, after, digits, ...)
 }
 

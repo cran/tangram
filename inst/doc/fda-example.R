@@ -1,45 +1,11 @@
----
-title: "FDA Work Example"
-author: "Shawn Garbett"
-date: "`r Sys.Date()`"
-output: rmarkdown::html_document
-vignette: >
-  %\VignetteIndexEntry{FDA Work Examples}
-  %\VignetteEngine{knitr::rmarkdown}
-  \usepackage[utf8]{inputenc}
----
-
-```{r setup, include=FALSE}
+## ----setup, include=FALSE------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 library(tangram)
 library(Hmisc)
 
 
-```
 
-## FDA Table Tranforms using tangram
-
-This is an example project showing how tangram can meet the needs of a fictional FDA report. It's based on some actual work that is currently embargoed. From clinical trial data many tables of various summaries are required. So the goal is to demonstrate the work required to create a series of consistent tables using tangram for a project.
-
-This example shows a few interesting things:
-
-* One can add *any* additional arguments to a tangram transform. The point of this library is flexibility and extensibility.
-* Further, the statistical tests are *not* defined by the library. This is being provided by the user.
-* It doesn't use the more targeted `cell_*` functions like `cell_chi_test`, since the formatting of these was not the desired.
-* This shows the need for some additional care around P-values. Fancy display of *p*-values is complicated and since this is targetted at statistical users I'm going to spend some time on this.
-* It's not a simple single table transform, and there are really 3 subcategories of table information that produce the full table.
-* Short cut in bundle definition is demonstrated in which the column type is ignored since in this case all columns specified are factors. This was known a priori based on the incoming data.
-* Full passing of formatting information is not done as this wasn't required.
-
-This work will most likely evolve into a tranform bundle inside the library that is available for anyone to use. To do this requires more work and consideration of every possible cross product of types that could be thrown at this transform and proper treatment of format specifiers. For the current effort this is not required and the format of the data/transform is constrained heavily by the problem at hand.
-
-I hope that over time transforms that are useful to a broader audience get defined and encourage submissions to add to this library.
-
-### Random Data
-
-First some random data to work with (real data is confidential).
-
-```{r, echo="TRUE"}
+## ---- echo="TRUE"--------------------------------------------------------
 # Make up some data
 N    <- 10000
 d1   <- data.frame(
@@ -82,11 +48,8 @@ d1$reported_side_effects <- sample(1:256, N, replace=TRUE)
 d1$reported_side_effects[!d1$side_effect] <- NA
 label(d1$reported_side_effects) <- "Reported Side Effects"
 
-```
 
-A function that performs the appropriate statistical test and returns a table cell is very helpful. In this case determination of the appropriate $\chi^2$ test over pairs of columns in a grid of numbers.
-
-```{r, echo="TRUE"}
+## ---- echo="TRUE"--------------------------------------------------------
 chiTests <- function(grid)
 {
   lapply(2:dim(grid)[2], FUN=function(i){
@@ -103,15 +66,8 @@ chiTests <- function(grid)
     }
   })
 }
-```
 
-In this example we are only considering N categories as row and M categories as column. The resulting table is (N+1) X (2M). More specifically a row for the name of the row variable and row for each category present in the row. There is a column for the count (percentage) of each column variable, then pair-wise comparisons with the first category following by the count of missing. Statistical tests only appear in the first row.
-
-The additional logical argument `display_percent` is specified to turn on and off the display of percents. By default it's TRUE and additional arguments passed to `tangram` are pushed down into these transforms so one is free to define *any* additional variables being passed in and out of transforms.
-
-Further this example seeks to avoid use of the `%>%` operator for instructional purposes, unlike the original example of using table_builder operators.
-
-```{r, echo="TRUE"}
+## ---- echo="TRUE"--------------------------------------------------------
 fda_cat_by_cat <- function(tb, row, col, display_percent=TRUE, ...)
 {
   grid   <- table(row$data, col$data)
@@ -148,18 +104,12 @@ fda_cat_by_cat <- function(tb, row, col, display_percent=TRUE, ...)
   tb <- add_col(tb, tests)
   tb <- add_col(tb, length(row$data)-sum(grid))
 }
-```
 
-Using this any variables that are factors can be used now to generate a table and render to HTML5.
-
-```{r, results="asis"}
+## ---- results="asis"-----------------------------------------------------
 tbl1 <- tangram("modality ~ procedure + category + prior", d1, transforms=fda_cat_by_cat)
 html5(tbl1, fragment=TRUE, inline="nejm.css", caption = "FDA Table 1", id="tbl1")
-```
 
-Next it is needed to allow for row variables that are continuous. We begin with the helper function that creates cells for the tests given the data for a row (x) and colunn (y). In this case we make no distribution assumption about the continuous variable and apply a Wilcoxon rank sum test. 
-
-```{r, echo=TRUE}
+## ---- echo=TRUE----------------------------------------------------------
 wilcoxTests <- function(x, y)
 {
   lvls <- levels(y)
@@ -169,11 +119,8 @@ wilcoxTests <- function(x, y)
     cell(render_f(test$p.value, 3), reference=3)
   })
 }
-```
 
-Similarly we create a table builder for continuous by M category summaries. The resulting table is (4) X (2M). There is a row for the row variable name, and the mean, median and standard deviation. Column's are the same as above.
-
-```{r, echo=TRUE}
+## ---- echo=TRUE----------------------------------------------------------
 fda_cont_by_cat <- function(tb, row, col, ...)
 {
   datar          <- row$data
@@ -211,15 +158,8 @@ fda_cont_by_cat <- function(tb, row, col, ...)
   
   tb
 }
-```
 
-This step bundles the two together and based on type of variable decides which transform to
-apply. We use the hmisc type determination function as a quick guide. Note that some transforms
-are unsupported as we there was no requirement to provide those cross product tables of variables.
-
-Further we add some descriptive footnotes.
-
-```{r, echo=TRUE}
+## ---- echo=TRUE----------------------------------------------------------
 unsupported <- function(tb, row, col) stop("unsupported type", row$value, "X", col$value)
 fda <- list(
   Type = hmisc_data_type,
@@ -234,24 +174,12 @@ fda <- list(
   Footnote    = "Count (Percent) format. ^1^ χ^2^ minus one. ^2^ Fisher exact. ^3^ Wilcoxon rank sum"
 )
 
-```
 
-Now a rendering with two forms of information is possible. 
-
-```{r, results="asis"}
+## ---- results="asis"-----------------------------------------------------
 tbl2 <- tangram(modality ~ procedure + category + prior + albumin, d1, transforms=fda)
 html5(tbl2, fragment=TRUE, inline="nejm.css", caption = "FDA Table 2", id="tbl2")
-```
 
-A tricky binary coded varible for reported side effects needs treatment. In this instance we only want the category in which side effects appeary, i.e. only those individuals with side effects is to be reported. The variable contains a binary number in which each bit represents a different side effect reported. 
-
-I have chosen to handle this in the formula syntax with the `*` operator for now. I have debated adding the traditional `|` denoting nested models to the formula syntax, but at present even handling the `*` properly is complicated and incomplete.
-
-Secondly as mentioned above additional variables are passed down to the transform which can make use of them. This is useful now for passing in a binary transform table (but it would be used for all transforms if multiple existed in a table, further refinement of list of lists could be used if needed).
-
-The basic approach is to expand the data into a long form, then pass to original cat X cat function using the display_percent logical to turn that off.
-
-```{r, echo="TRUE"}
+## ---- echo="TRUE"--------------------------------------------------------
 side_effect_key = list(
   "Repetative Uttering of Wut?",
   "Excessive Sweating",
@@ -303,20 +231,12 @@ fda <- list(
   ASTMultiply = fda_binary,
   Footnote    = "Count (Percent) format. ^1^ χ^2^ minus one. ^2^ Fisher exact. ^3^ Wilcoxon rank sum"
 )
-```
 
-Now we have 3 different pieces completed.
-
-```{r, results="asis"}
+## ---- results="asis"-----------------------------------------------------
 tbl3 <- tangram(modality ~ procedure + category + prior + albumin + reported_side_effects*side_effect, d1, transforms=fda,  binary_key=side_effect_key)
 html5(tbl3, fragment=TRUE, inline="nejm.css", caption = "FDA Table 3", id="tbl3")
-```
 
-And the requested table tranforms for FDA work is complete.
-
-Here is the final version of the code:
-
-```{r, results="asis"}
+## ---- results="asis"-----------------------------------------------------
 
   ###############################################################
  # Statistical tests as table cells
@@ -470,4 +390,4 @@ fda <- list(
   Footnote    = "Count (Percent) format. ^1^ χ^2^ minus one. ^2^ Fisher exact. ^3^ Wilcoxon rank sum"
 )
 
-```
+

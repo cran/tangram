@@ -4,7 +4,8 @@
 \alias{cell_iqr}
 \title{Create a interquartile range cell object of the given data}
 \usage{
-cell_iqr(x, format = NA, na.rm = TRUE, names = FALSE, type = 8, ...)
+cell_iqr(x, format = NA, na.rm = TRUE, names = FALSE, type = 8,
+  msd = FALSE, quant = c(0.25, 0.5, 0.75), ...)
 }
 \arguments{
 \item{x}{numeric vector whose sample quantiles are wanted. NA and NaN values are not allowed in numeric vectors unless na.rm is TRUE.}
@@ -16,6 +17,10 @@ cell_iqr(x, format = NA, na.rm = TRUE, names = FALSE, type = 8, ...)
 \item{names}{logical; if true, the result has a names attribute. Set to FALSE for speedup with many probs.}
 
 \item{type}{integer; specify algorithm to use in constructing quantile. See quantile for more information.}
+
+\item{msd}{logical; compute an msd attribute containing mean and standard deviation}
+
+\item{quant}{numeric; The quantiles to display. Should be an odd length vector, since the center value is highlighted.}
 
 \item{...}{additional arguments to constructing cell}
 }

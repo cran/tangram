@@ -4,7 +4,8 @@
 \alias{cell.htest}
 \title{Construct hypothesis test cell}
 \usage{
-\method{cell}{htest}(x, format = 2, pformat = "\%1.3f", ...)
+\method{cell}{htest}(x, format = 2, pformat = "\%1.3f", reference = NULL,
+  ...)
 }
 \arguments{
 \item{x}{The htest object to convert to a rendereable cell}
@@ -12,6 +13,8 @@
 \item{format}{numeric or character; A formatting directive applied to statistics}
 
 \item{pformat}{numeric or character; A formatting directive to be applied to p-values}
+
+\item{reference}{numeric or character; A reference indicator for this test}
 
 \item{...}{additional specifiers for identifying this cell (see key)}
 }

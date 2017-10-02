@@ -14,22 +14,36 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-sub_table <- list(
-#  c("\u0020", "\\\\space{}"),
-  c("\u0023", "\\\\#"),
-#  c("\u0024", "\\\\textdollar{}"),
+# Since this supports a subset of Rmarkdown, the special characters #$*\^_`~ must be
+# escaped to be captured by this translation table.
+gsub_table <- list(
+  # Brace conversion happens first!
+  c("\u007B",     "\\\\lbrace"),
+  c("\u007D",     "\\\\rbrace{}"),
+  c("\\\\lbrace", "\\\\lbrace{}"),
+
+  # Space Conversions
+  c("\u000a\u000a", "\\\\vspace{5mm}"),             # 2 Newlines   -> vspace
+  c("\u000d\u000a\u000d\u000a", "\\\\vspace{5mm}"), # 2 CR/Newline -> vspace
+
+  # Mostly orderly UNICODE Conversions
+  c("\\\\\u0023", "\\\\#"),
+  c("\\\\\\\u0024", "\\\\textdollar{}"),
   c("\u0025", "\\\\%"),
-  c("\u0026", "\\\\&amp;"),
+  c("\u0026", "\\\\&"),
   c("\u0027", "\\\\textquotesingle{}"),
-  c("\\\u002A", "\\\\ast{}"),
+  c("\\\\\\\u002A", "\\\\ast{}"), # The escape is deep with this one
+  c("\u003C", "\\\\textless{}"),
+  c("\u003E", "\\\\textgreater{}"),
+# Defered till all escaped characters are handled
 #  c("\\\u005C", "\\\\textbackslash{}"),
-#  c("\u005E", "\\\\^{}"),
-#  c("\u005F", "\\\\_"),
-  c("\u0060", "\\\\textasciigrave{}"),
-#  c("\u007B", "\\\\lbrace{}"),
+  c("\\\\\\\u005E", "\\\\textasciicircum{}"),
+  c("\\\\\\\u005F", "\\\\_"),
+  c("\\\\\\\u0060", "\\\\textasciigrave{}"),
   c("\\\u007C", "\\\\vert{}"),
-#  c("\u007D", "\\\\rbrace{}"),
-  c("\u007E", "\\\\textasciitilde{}"),
+  c("\\\\\\\u007E", "\\\\textasciitilde{}"),
+# NBSP handled below special handling
+#  c("\u00A0",                 "~"),
   c("\u00A1", "\\\\textexclamdown{}"),
   c("\u00A2", "\\\\textcent{}"),
   c("\u00A3", "\\\\textsterling{}"),
@@ -175,8 +189,8 @@ sub_table <- list(
   c("\u012F", "\\\\k{i}"),
   c("\u0130", "\\\\.{I}"),
   c("\u0131", "\\\\i{}"),
-  c("\u0132", "IJ"),
-  c("\u0133", "ij"),
+  c("\u0132", "\\\\IJ{}"),
+  c("\u0133", "\\\\ij{}"),
   c("\u0134", "\\\\^{J}"),
   c("\u0135", "\\\\^{\\\\j}"),
   c("\u0136", "\\\\c{K}"),
@@ -252,11 +266,24 @@ sub_table <- list(
   c("\u017C", "\\\\.{z}"),
   c("\u017D", "\\\\v{Z}"),
   c("\u017E", "\\\\v{z}"),
+  c("\u017F", "\\\\ifdefined\\\\XeTeXrevision\\\\symbol{\"017F}\\\\else\\\\ifdefined\\\\directlua\\\\symbol{\"017F}\\\\else{\\\\fontencoding{TS1}\\\\selectfont s}\\\\fi\\\\fi{}"),
   c("\u0195", "\\\\texthvlig{}"),
   c("\u019E", "\\\\textnrleg{}"),
   c("\u01AA", "\\\\eth{}"),
   c("\u01BA", "{\\\\fontencoding{LELA}\\\\selectfont\\\\char195}"),
   c("\u01C2", "\\\\textdoublepipe{}"),
+  c("\u01c4", "DZ\u030c"),
+  c("\u01c5", "Dz\u030c"),
+  c("\u01c6", "dz\u030c"),
+  c("\u01c7", "LJ"),
+  c("\u01c8", "Lj"),
+  c("\u01c9", "lj"),
+  c("\u01ca", "NJ"),
+  c("\u01cb", "Nj"),
+  c("\u01cc", "nj"),
+  c("\u01F1", "DZ"),
+  c("\u01F2", "Dz"),
+  c("\u01F3", "dz"),
   c("\u01F5", "\\\\'{g}"),
   c("\u0250", "\\\\Elztrna{}"),
   c("\u0252", "\\\\Elztrnsa{}"),
@@ -315,12 +342,13 @@ sub_table <- list(
   c("\u02DA", "\\\\r{}"),
   c("\u02DB", "\\\\k{}"),
   c("\u02DC", "\\\\texttildelow{}"),
-  c("\u02DD", "\\\\H{}"),
+  c("\u02DD", "\\\\textacutedbl{}"),
   c("\u02E5", "\\\\tone{55}"),
   c("\u02E6", "\\\\tone{44}"),
   c("\u02E7", "\\\\tone{33}"),
   c("\u02E8", "\\\\tone{22}"),
   c("\u02E9", "\\\\tone{11}"),
+  c("\u02F7", "\\\\texttildelow{}"),
   c("\u0300", "\\\\`"),
   c("\u0301", "\\\\'"),
   c("\u0302", "\\\\^"),
@@ -621,6 +649,8 @@ sub_table <- list(
   c("\u04E1", "\\\\cyrchar\\\\cyrabhdze{}"),
   c("\u04E8", "\\\\cyrchar\\\\CYROTLD{}"),
   c("\u04E9", "\\\\cyrchar\\\\cyrotld{}"),
+  c("\u0E3F", "\\\\textbaht{}"),
+  c("\u1e9e", "\\\\ifdefined\\\\XeTeXrevision\\\\iffontchar\\\\font\"1E9E\\\\symbol{\"1E9E}\\\\else\\\\SS\\\\fi\\\\else\\\\ifdefined\\\\directlua\\\\iffontchar\\\\font\"1E9E\\\\symbol{\"1E9E}\\\\else\\\\SS\\\\fi\\\\else\\\\SS\\\\fi\\\\fi{}"),
   c("\u2002", "\\\\hspace{0.6em}"),
   c("\u2003", "\\\\hspace{1em}"),
   c("\u2004", "\\\\hspace{0.33em}"),
@@ -631,14 +661,18 @@ sub_table <- list(
   c("\u2009", "\\\\hspace{0.167em}"),
   c("\u2009-0200A-0200A", "\\\\;"),
   c("\u200A", "\\\\mkern1mu{}"),
+  c("\u200B", "\\\\hspace{0pt}"),# zero width space (ZWSP)
   c("\u2013", "\\\\textendash{}"),
   c("\u2014", "\\\\textemdash{}"),
   c("\u2015", "\\\\rule{1em}{1pt}"),
-  c("\u2016", "\\\\Vert{}"),
+  c("\u2016", "\\\\textbardbl{}"),
+  c("\u2018", "\\\\textquoteleft{}"),
+  c("\u2019", "\\\\textquoteright{}"),
+  c("\u201A", "\\\\quotesinglbase{}"),
   c("\u201B", "\\\\Elzreapos{}"),
   c("\u201C", "\\\\textquotedblleft{}"),
   c("\u201D", "\\\\textquotedblright{}"),
-  c("\u201E", ",,"),
+  c("\u201E", "\\\\quotedblbase{}"),
   c("\u2020", "\\\\textdagger{}"),
   c("\u2021", "\\\\textdaggerdbl{}"),
   c("\u2022", "\\\\textbullet{}"),
@@ -652,14 +686,28 @@ sub_table <- list(
   c("\u2035", "\\\\backprime{}"),
   c("\u2039", "\\\\guilsinglleft{}"),
   c("\u203A", "\\\\guilsinglright{}"),
+  c("\u203B", "\\\\textreferencemark{}"),
+  c("\u203D", "\\\\textinterrobang{}"),
+  c("\u2044", "\\\\textfractionsolidus{}"),
+  c("\u2045", "\\\\textlquill{}"),
+  c("\u2046", "\\\\textrquill{}"),
+  c("\u2052", "\\\\textdiscount{}"),
   c("\u2057", "''''"),
   c("\u205F", "\\\\mkern4mu{}"),
   c("\u2060", "\\\\nolinebreak{}"),
+  c("\u20A4", "\\\\textlira{}"),
+  c("\u00a5", "\\\\textyen{}"),
+  c("\u20A6", "\\\\textnaira{}"),
   c("\u20A7", "\\\\ensuremath{\\\\Elzpes}"),
+  c("\u20A9", "\\\\textwon{}"),
+  c("\u20AB", "\\\\textdong{}"),
   c("\u20AC", "\\\\mbox{\\\\texteuro}{}"),
+  c("\u20B1", "\\\\textpeso{}"),
+  c("\u20B2", "\\\\textguarani{}"),
   c("\u20DB", "\\\\dddot{}"),
   c("\u20DC", "\\\\ddddot{}"),
   c("\u2102", "\\\\mathbb{C}"),
+  c("\u2103", "\\\\textcelsius{}"),
   c("\u210A", "\\\\mathscr{g}"),
   c("\u210B", "\\\\mathscr{H}"),
   c("\u210C", "\\\\mathfrak{H}"),
@@ -671,13 +719,15 @@ sub_table <- list(
   c("\u2113", "\\\\mathscr{l}"),
   c("\u2115", "\\\\mathbb{N}"),
   c("\u2116", "\\\\cyrchar\\\\textnumero{}"),
+  c("\u2117", "\\\\textcircledP{}"),
   c("\u2118", "\\\\wp{}"),
   c("\u2119", "\\\\mathbb{P}"),
   c("\u211A", "\\\\mathbb{Q}"),
   c("\u211B", "\\\\mathscr{R}"),
   c("\u211C", "\\\\mathfrak{R}"),
   c("\u211D", "\\\\mathbb{R}"),
-  c("\u211E", "\\\\Elzxrat{}"),
+  c("\u211E", "\\\\textrecipe{}"),
+  c("\u2120", "\\\\textservicemark{}"),
   c("\u2122", "\\\\texttrademark{}"),
   c("\u2124", "\\\\mathbb{Z}"),
   c("\u2126", "\\\\Omega{}"),
@@ -687,6 +737,7 @@ sub_table <- list(
   c("\u212B", "\\\\AA{}"),
   c("\u212C", "\\\\mathscr{B}"),
   c("\u212D", "\\\\mathfrak{C}"),
+  c("\u212E", "\\\\textestimated{}"),
   c("\u212F", "\\\\mathscr{e}"),
   c("\u2130", "\\\\mathscr{E}"),
   c("\u2131", "\\\\mathscr{F}"),
@@ -784,10 +835,11 @@ sub_table <- list(
   c("\u220F", "\\\\prod{}"),
   c("\u2210", "\\\\coprod{}"),
   c("\u2211", "\\\\sum{}"),
+  c("\u2212", "\\\\textminus{}"),
   c("\u2213", "\\\\mp{}"),
   c("\u2214", "\\\\dotplus{}"),
   c("\u2216", "\\\\setminus{}"),
-  c("\u2217", "{_\\\\ast}"),
+  c("\u2217", "\\\\textasteriskcentered{}"),
   c("\u2218", "\\\\circ{}"),
   c("\u2219", "\\\\bullet{}"),
   c("\u221A", "\\\\surd{}"),
@@ -1005,6 +1057,7 @@ sub_table <- list(
   c("\u23A3", "\\\\Elzdlcorn{}"),
   c("\u23B0", "\\\\lmoustache{}"),
   c("\u23B1", "\\\\rmoustache{}"),
+  c("\u2422", "\\\\textblank{}"),
   c("\u2423", "\\\\textvisiblespace{}"),
   c("\u2460", "\\\\ding{172}"),
   c("\u2461", "\\\\ding{173}"),
@@ -1047,6 +1100,7 @@ sub_table <- list(
   c("\u25D2", "\\\\Elzcirfb{}"),
   c("\u25D7", "\\\\ding{119}"),
   c("\u25D8", "\\\\Elzrvbull{}"),
+  c("\u25E6", "\\\\textopenbullet{}"),
   c("\u25E7", "\\\\Elzsqfl{}"),
   c("\u25E8", "\\\\Elzsqfr{}"),
   c("\u25EA", "\\\\Elzsqfse{}"),
@@ -1374,17 +1428,15 @@ sub_table <- list(
   c("\u2AEB", "\\\\ElsevierGlyph{E30D}"),
   c("\u2AF6", "\\\\Elztdcol{}"),
   c("\u2AFD", "{{/}\\\\!\\\\!{/}}"),
+  c("\u2E18", "\\\\textinterrobangdown{}"),
+  c("\u3008", "\\\\textlangle{}"),
+  c("\u3009", "\\\\textrangle{}"),
   c("\u300A", "\\\\ElsevierGlyph{300A}"),
   c("\u300B", "\\\\ElsevierGlyph{300B}"),
   c("\u3018", "\\\\ElsevierGlyph{3018}"),
   c("\u3019", "\\\\ElsevierGlyph{3019}"),
   c("\u301A", "\\\\openbracketleft{}"),
   c("\u301B", "\\\\openbracketright{}"),
-  c("\uFB00", "ff"),
-  c("\uFB01", "fi"),
-  c("\uFB02", "fl"),
-  c("\uFB03", "ffi"),
-  c("\uFB04", "ffl"),
   c("\uD400", "\\\\mathbf{A}"),
   c("\uD401", "\\\\mathbf{B}"),
   c("\uD402", "\\\\mathbf{C}"),
@@ -2346,5 +2398,104 @@ sub_table <- list(
   c("\uD7FC", "\\\\mathtt{6}"),
   c("\uD7FD", "\\\\mathtt{7}"),
   c("\uD7FE", "\\\\mathtt{8}"),
-  c("\uD7FF", "\\\\mathtt{9}")
+  c("\uD7FF", "\\\\mathtt{9}"),
+  c("\uFB00", "ff"),
+  c("\uFB01", "fi"),
+  c("\uFB02", "fl"),
+  c("\uFB03", "ffi"),
+  c("\uFB04", "ffl"),
+  c("\uFB05", "\u017ft"),
+  c("\uFB06", "st"),
+
+  ###################################################
+  # Remaining Special Handling
+  c("(?![[:space:]])[[:cntrl:]]", ""), # Remove control characters remaining
+  c("[[:space:]]+", " "),              # Convert any sequence of whitespace to a single space.
+
+  c("\\\\\\\\", "\\\\textbackslash{}"), # Deferred backslash escape from above list
+
+  # Subset of markdown syntax
+  c("\\*\\*([^\\*]+)\\*\\*",  "\\\\textbf{\\1}"), # Bold
+  c("__([^_]+)__",            "\\\\textbf{\\1}"),
+  c("\\*([^\\*]+)\\*",        "\\\\textit{\\1}"), # Italic
+  c("_([^_]+)_",              "\\\\textit{\\1}"),
+  c("`([^`]+)`",              "\\\\texttt{\\1}"), # Inline Code
+  c("~~([^~]+)~~",            "\\\\sout{\\1}"),   # Strikethrough (require ulem package)
+  c("~([^~]+)~",              "\\\\textsubscript{\\1}"),           # Subscript
+  c("\u00A0",                 "~"),               # no-break space (NBSP) must be handled after subscripting
+  c("\\^([^\\^]+)\\^",        "\\\\textsuperscript{\\1}"),          # Superscript
+
+  c("^# (.*)",                "\\\\Huge{\\1}"),   # Header 1
+  c("^## (.*)",               "\\\\huge{\\1}"),   # Header 2
+  c("^### (.*)",              "\\\\LARGE{\\1}"),  # Header 3
+  c("^#### (.*)",             "\\\\Large{\\1}"),  # Header 4
+  c("^##### (.*)",            "\\\\large{\\1}"),  # Header 5
+  c("^###### (.*)",           "\\1"),             # Header 6
+
+  c("---",                    "\\\\textemdash{}"),
+  c("--",                     "\\\\textendash{}"),
+  c("\\.\\.\\.",              "\\\\ldots{}"),
+  c("\\*\\*\\*",              "\\\\hrule{}")
 )
+
+
+# dplR::latexify 1.6.6 modified heavily for use in tangram
+# Copyright (C) 2017 Andy Bunn
+# Copyright (C) 2017 Shawn Garbett, modifications
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+## Usage: \Sexpr{latexify(string_produced_by_R_code)}
+##
+## It seems that Sweave needs doublebackslash = TRUE
+## but knitr needs doublebackslash = FALSE.
+#' @include render-latex-map.R
+#' @importFrom stringi stri_trans_nfc
+#' @importFrom stringi stri_trans_nfd
+#' @importFrom utils capture.output
+latexify <- function(x)
+{
+  y <- as.character(x)          # Make sure a character string was passed
+  if(nchar(y) == 0) return("")  # Abort early for zero characters
+
+  ## Kludge for converting from "byte" to the current encoding
+  ## in a way which preserves the hex notation.
+  encBytes <- Encoding(y) == "bytes"
+  if (any(encBytes)) y[encBytes] <- capture.output(cat(y[encBytes], sep = "\n"))
+
+  ## Convert strings to UTF-8 encoding, NFD (decomposed) form, for
+  ## processing of accented characters. Doing this early to
+  ## circumvent pecularities in gsub() (and nchar()) when working in
+  ## the C locale.
+  y <- stri_trans_nfd(y)
+
+  ## Run all conversions as appropriate not inside "$"
+  pieces  <- strsplit(y, "(?<!\\\\)\\$", perl=TRUE)[[1]]
+  for(i in 1:length(pieces))
+  {
+    if( (i %% 2) == 0)
+    {
+      pieces[i] <- paste0("\\[", pieces[i], "\\]")
+    } else # Odd, run gsub conversions
+    {
+      for (subst in gsub_table) pieces[i] <- gsub(subst[1], subst[2], pieces[i], perl = TRUE)
+    }
+  }
+  y <- paste0(pieces, collapse="")
+
+  ## Convert result to UTF-8 NFC encoding, although most non-ASCII
+  ## content has probably been converted to LaTeX commands.
+  stri_trans_nfc(y)
+}
+

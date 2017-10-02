@@ -16,10 +16,10 @@ tangram(x, ...)
 \method{tangram}{data.frame}(x, colheader = NA, ...)
 
 \method{tangram}{formula}(x, data, transforms = hmisc_style, after = NA,
-  ...)
+  digits = NA, ...)
 
 \method{tangram}{character}(x, data, transforms = hmisc_style, after = NA,
-  ...)
+  digits = NA, ...)
 
 \method{tangram}{rms}(x, data = NULL, short.labels = NULL,
   footnote = NULL, rnd.digits = 2, rnd.stats = rnd.digits, ...)
@@ -40,6 +40,8 @@ tangram(x, ...)
 \item{transforms}{list of lists of functions; that contain the transformation to apply for summarization}
 
 \item{after}{function or list of functions; one or more functions to further process an abstract table}
+
+\item{digits}{numeric; default number of digits to use for display of numerics}
 
 \item{short.labels}{numeric; Named vector of variable labels to replace in interaction rows. Must be in format c("variable name" = "shortened label").}
 

@@ -1,16 +1,19 @@
 ## ----setup, include=FALSE------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 library(tangram)
-data(pbc)
 
 ## ----style, results='asis'-----------------------------------------------
 cat(custom_css("lancet.css"))
 
+## ------------------------------------------------------------------------
+head(pbc)
+
 ## ---- results="asis"-----------------------------------------------------
-html5(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", pbc),
+html5(tangram("drug ~ bili[2] + albumin + stage::Categorical + protime + sex + age + spiders", tangram::pbc),
       fragment=TRUE, caption = "Hmisc::PBC", id="tbl2")
 
 ## ---- results='asis'-----------------------------------------------------
+set.seed(1234)
 x <- round(rnorm(375, 79, 10))
 y <- round(rnorm(375, 80,  9))
 y[rbinom(375, 1, prob=0.05)] <- NA
