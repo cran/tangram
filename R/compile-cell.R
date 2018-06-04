@@ -14,6 +14,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Turn a passed pformat into a function (or leave alone)
+pfunc <- function(pformat)
+{
+  if(class(pformat) == "function") return(pformat)
+
+  if(is.null(pformat)) pformat <- "%1.3f"
+
+  function(p)
+  {
+    if(is.na(p) || is.nan(p) || p <0 || p>1) return("NA")
+
+    y <- render_f(p, pformat)
+
+    # Check for all zeros once formated
+    test <- grep("[^0\\.]+", y)
+    if(length(test) > 0) return(y) # It's good!
+
+    # Otherwise, append less than
+    paste0("<", substr(y, 1, nchar(y)-1), "1")
+  }
+}
+
+
 #' S3 object to return number of rows/cols in object
 #'
 #' Number of rows/cols in provided object
@@ -211,7 +234,7 @@ cell_iqr <- function(x,
   if(is.na(format)) format <- format_guess(y)
   ql <- sapply(y, function(x) render_f(x, format))
   if(msd) attr(ql, "msd") <- c(render_f(mean(x, na.rm=TRUE), format),
-                               render_f(sd(x, na.rm=TRUE) / sqrt(length(x)), format))
+                               render_f(sd(x, na.rm=TRUE), format))
   cell(ql, class="cell_iqr", ...)
 }
 
@@ -417,11 +440,12 @@ cell_n <- function(n, class=NULL, ...)
 #' cell(aov(x~y,data.frame(x=rnorm(10), y=rnorm(10))))
 cell.aov <- function(x, pformat="%1.3f", ...)
 {
+  pformat <- pfunc(pformat)
   test <- summary(x)[[1]]
   cell_fstat(f   = render_f(test$'F value'[1], "%.2f"),
              df1 = test$Df[1],
-             df2  = test$Df[2],
-             p   = render_f(test$'Pr(>F)'[1], pformat),
+             df2 = test$Df[2],
+             p   = pformat(test$'Pr(>F)'[1]),
              ...)
 }
 
@@ -434,7 +458,6 @@ cell.aov <- function(x, pformat="%1.3f", ...)
 #' @param x The htest object to convert to a rendereable cell
 #' @param format numeric or character; A formatting directive applied to statistics
 #' @param pformat numeric or character; A formatting directive to be applied to p-values
-#' @param reference numeric or character; A reference indicator for this test
 #' @param ... additional specifiers for identifying this cell (see key)
 #' @return an S3 rendereable cell that is a hypothesis test
 #' @export
@@ -443,18 +466,19 @@ cell.aov <- function(x, pformat="%1.3f", ...)
 #' cell(cor.test(rnorm(10), rnorm(10)))
 #' cell(chisq.test(rpois(10,1)))
 #' cell(t.test(rnorm(10), rnorm(10)))
-cell.htest <- function(x, format=2, pformat="%1.3f", reference=NULL, ...)
+cell.htest <- function(x, format=2, pformat="%1.3f", ...)
 {
+  pformat <- pfunc(pformat)
+
   #reference <- if(is.null(reference)) "" else paste0("^^",reference, "^^")
   if(names(x$statistic) == "X-squared")
-    cell_chi2(render_f(x$statistic, format), x$parameter[1], render_f(x$p.value, pformat), ...)
+    cell_chi2(render_f(x$statistic, format), x$parameter[1], pformat(x$p.value), ...)
   else if(x$method == "Spearman's rank correlation rho")
-    cell_spearman(as.character(x$statistic), render_f(x$estimate,format), render_f(x$p.value, pformat), ...)
+    cell_spearman(as.character(x$statistic), render_f(x$estimate,format), pformat(x$p.value), ...)
   else if(names(x$statistic) == "V") # wilcox.test
-    cell(paste0("V=", x$statistic, ", P=", render_f(x$p.value, pformat)),
-         reference=reference,
+    cell(paste0("V=", x$statistic, ", P=", pformat(x$p.value)),
          class="statistics", ...)
   else
-    cell_studentt(render_f(x$statistic, format), render_f(x$parameter[1],pformat), render_f(x$p.value, pformat), ...)
+    cell_studentt(render_f(x$statistic, format), render_f(x$parameter[1],format), pformat(x$p.value), ...)
 }
 

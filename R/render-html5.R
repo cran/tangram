@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #' @importFrom htmltools htmlEscape
-reference <- function(object)
+htmlreference <- function(object)
 {
   if(is.null(attr(object,"reference"))) "" else
     paste0("<sup>", htmlEscape(attr(object, "reference")), "</sup>")
@@ -179,7 +179,7 @@ html5.tangram <- function(object, id=NA, caption=NA, css=NA, fragment=TRUE, inli
   }
   footnote <- if(is.na(footnote)) "" else
   {
-    paste("<div class=\"footnote\">", footnote, "</div>", sep='')
+    paste("<div class=\"footnote\">", paste(footnote, collapse=" "), "</div>", sep='')
   }
 
   footnote <- gsub("\\^(.)\\^", "<sup>\\1</sup>", footnote, fixed=FALSE)
@@ -249,6 +249,12 @@ html5.cell <- function(object, id, ..., class=NULL)
 {
   sep  <- if(is.null(attr(object, "sep"))) ", " else attr(object, "sep")
 
+  if(is.null(class))
+  {
+    idx <- match("cell", base::class(object))
+    if(idx > 1) class <- base::class(object)[1:(idx-1)]
+  }
+
   x <- if(is.null(names(object)))
   {
     paste(object, collapse=sep)
@@ -259,7 +265,21 @@ html5.cell <- function(object, id, ..., class=NULL)
 
   paste0("<td ",
          html5_class(c(class, attr(object, "parity"))),
-         ">", htmlEscape(x), reference(object), "</td>")
+         ">", my_html_escape(x), htmlreference(object), "</td>")
+}
+
+#' @importFrom htmltools htmlEscape
+my_html_escape <- function(x)
+{
+  # Turn leading spaces into a set of non breaking html space
+  leading <- nchar(stringr::str_match(x, "^\\s+")[1,1])
+  if(is.na(leading)) leading <- 0
+  leading <- ceiling(leading/2)
+
+  gsub("^\\s+",
+    paste0(rep("&nbsp;&nbsp;&nbsp;&nbsp;", leading), collapse=""),
+    gsub("\\^(.)\\^", "<sup>\\1</sup>", htmlEscape(x), fixed=FALSE),
+    fixed=FALSE)
 }
 
 #' Convert an abstract cell_subheader object into an HTML5 string
@@ -271,7 +291,6 @@ html5.cell <- function(object, id, ..., class=NULL)
 #' @param class additional class attributes for CSS rendering
 #' @param ... additional arguments to renderer. Unused
 #' @return A text string rendering of the given subheader as a <td> with several <span>'s.
-#' @importFrom htmltools htmlEscape
 #' @export
 html5.cell_subheader <- function(object, id, ..., class=NULL)
 {
@@ -289,7 +308,6 @@ html5.cell_subheader <- function(object, id, ..., class=NULL)
 #' @param class additional class attributes for CSS rendering
 #' @param ... additional arguments to renderer. Unused
 #' @return A text string rendering of the given subheader as a <td> with several <span>'s.
-#' @importFrom htmltools htmlEscape
 #' @export
 html5.cell_header <- function(object, id, ..., class=NULL)
 {
@@ -313,12 +331,18 @@ html5.cell_header <- function(object, id, ..., class=NULL)
 #' @param ... additional arguments to renderer. Unused
 #' @param class An additional class attribute for the HTML5 element
 #' @return A text string rendering of the given label as a <td> with several <span>'s.
-#' @importFrom htmltools htmlEscape
+#' @importFrom stringr str_match
 #' @export
 html5.cell_label <- function(object, id, ..., class=NULL)
 {
   # Turn leading spaces into a set of non breaking html space
-  label <- gsub("^\\s+", "&nbsp;&nbsp;&nbsp;&nbsp;", htmlEscape(object))
+  leading <- nchar(stringr::str_match(object, "^\\s+")[1,1])
+  if(is.na(leading)) leading <- 0
+  leading <- ceiling(leading/2)
+
+  label <- gsub("^\\s+",
+                paste0(rep("&nbsp;&nbsp;&nbsp;&nbsp;", leading), collapse=""),
+                my_html_escape(object))
   # Turn "*" for interaction terms into a break
   label <- gsub("\\*", "&times;<br/>&nbsp;&nbsp;", label)
 
@@ -329,7 +353,7 @@ html5.cell_label <- function(object, id, ..., class=NULL)
              "<span class=\"variable\">",
              label,
              "</span>",
-             reference(object),
+             htmlreference(object),
              "</td>")
   else
       paste0("<td ",
@@ -339,9 +363,9 @@ html5.cell_label <- function(object, id, ..., class=NULL)
              label,
              "</span>",
              "<span class=\"units\">",
-             htmlEscape(attr(object,"units")),
+             my_html_escape(attr(object,"units")),
              "</span>",
-             reference(object),
+             htmlreference(object),
              "</td>")
 }
 
@@ -363,9 +387,9 @@ html5.cell_estimate <- function(object, id, ..., class=NULL)
             html5_class(c(class, attr(object, "parity"), "data", "estimate")),
             " data-clipboard-text=\"","{",idx[1]," ",idx[3],"}\"",
             ">",
-          htmlEscape(object[[1]]),
-          " (",htmlEscape(paste0(object[[2]], collapse = ", ")),")",
-          reference(object),
+          my_html_escape(object[[1]]),
+          " (",my_html_escape(paste0(object[[2]], collapse = ", ")),")",
+          htmlreference(object),
           "</td>")
 }
 
@@ -383,7 +407,7 @@ html5.cell_estimate <- function(object, id, ..., class=NULL)
 html5.cell_iqr <- function(object, id, ..., class=NULL)
 {
   idx <- index(object, id)
-  ref <- if(is.null(attr(object,"reference"))) "" else paste0("<sup>", htmlEscape(attr(object, "reference")), "</sup>")
+  ref <- if(is.null(attr(object,"htmlreference"))) "" else paste0("<sup>", htmlEscape(attr(object, "htmlreference")), "</sup>")
 
   mid <- floor(length(object)/2) + 1
   y <- as.character(object)
@@ -397,14 +421,14 @@ html5.cell_iqr <- function(object, id, ..., class=NULL)
       paste0("<td class=\"", attr(object, "parity"),"\"><span ",
          html5_class(c(class, attr(object, "parity"), "data", "quantile")),
          ">",
-         paste0("<span class=\"q25\">", htmlEscape(object[1:(mid-1)]), "</span>", collapse=""),
-         "<span class=\"q50\">", htmlEscape(object[mid]), "</span>",
-         paste0("<span class=\"q75\">", htmlEscape(object[(mid+1):length(object)]), "</span>", collapse=""),
-         reference(object))
+         paste0("<span class=\"q25\">", my_html_escape(object[1:(mid-1)]), "</span>", collapse=""),
+         "<span class=\"q50\">", my_html_escape(object[mid]), "</span>",
+         paste0("<span class=\"q75\">", my_html_escape(object[(mid+1):length(object)]), "</span>", collapse=""),
+         htmlreference(object))
 
   if(is.null(z)) paste0(result, "</td>") else
   {
-    paste0(result, '<br/><span>', htmlEscape(z[1]), '&plusmn;', htmlEscape(z[2]), "</span></td>")
+    paste0(result, '<br/><span>', my_html_escape(z[1]), '&plusmn;', my_html_escape(z[2]), "</span></td>")
   }
 }
 
@@ -422,7 +446,7 @@ html5.cell_iqr <- function(object, id, ..., class=NULL)
 #'
 html5.cell_n <- function(object, id, ..., class=NULL)
 {
-  ref <- if(is.null(attr(object,"reference"))) "" else paste0("<sup>", htmlEscape(attr(object, "reference")), "</sup>")
+  ref <- if(is.null(attr(object,"htmlreference"))) "" else paste0("<sup>", htmlEscape(attr(object, "htmlreference")), "</sup>")
 
   idx <- index(object, id)
 
@@ -430,9 +454,9 @@ html5.cell_n <- function(object, id, ..., class=NULL)
          html5_class(c(class, attr(object, "parity"), "data", "N")),
          " data-clipboard-text=\"","{",idx[1]," N=",idx[3],"}\"",
          "><span class=\"N\">",
-         htmlEscape(object),
+         my_html_escape(object),
          "</span>",
-         reference(object),
+         htmlreference(object),
          "</td>")
 }
 
@@ -460,7 +484,7 @@ html5.cell_fstat <- function(object, id, ..., class=NULL)
     object["F"], ",</span>",
     "<span class=\"pvalue\"><span class=\"description\">P = </span>",
     object["P"],
-    reference(object),
+    htmlreference(object),
     "</span>",
     "</td>"
   )
@@ -493,7 +517,7 @@ html5.cell_fraction <- function(object, id, ..., class=NULL)
            "<span class=\"percentage\">",  percentage, "</span>",
            "<span class=\"numerator\">",   num,        "</span>",
            "<span class=\"denominator\">", den,        "</span>",
-         "</span>",reference(object),"</td>")
+         "</span>",htmlreference(object),"</td>")
 }
 
 #' Convert an abstract cell_chi2 object into an HTML5 string
@@ -523,7 +547,7 @@ html5.cell_chi2 <- function(object, id, ..., class=NULL)
          ",</span><span class=\"pvalue\"><span class=\"description\">P = </span>",
          object[3],
          "</span>",
-          reference(object),
+          htmlreference(object),
          "</td>"
   )
 }

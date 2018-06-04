@@ -71,6 +71,39 @@ del_row <- function(table, row)
   table
 }
 
+#' Insert a row into a tangram table
+#'
+#' Insert a row into a tangram table. Will fill with empty cells is not enough cells are specified.
+#'
+#' @param table the table to modify
+#' @param after numeric; The row to position the new row after. Can be zero for inserting a new first row.
+#' @param ... Table cells to insert. Cannot be larger than existing table.
+#' @return the modified table
+#' @export
+insert_row <- function(table, after, ...)
+{
+  # Get the cells from ..., and make sure they are cells
+  cells <- lapply(list(...), FUN=function(x) if("cell" %in% class(x)) x else cell(x))
+  N     <- length(table)
+
+  # Check for mismatch in arguments
+  if(length(cells) > N) stop("tangram::insert_row() number of cells provided larger than current row size")
+  if(after > N) stop("tangram::insert_row() after parameter larger than number of rows")
+  if(after < 0) stop("tangram::insert_row() negative after row")
+
+  # Make room
+  if(after < N) for(i in N:(after+1)) table[[i+1]] <- table[[i]]
+
+  # Fill in blanks
+  N <- length(table[[1]])
+  if(length(cells) < N) for(i in (length(cells)+1):N) cells[[i]] <- cell_label("")
+
+  # Put in the row
+  table[[after+1]] <- cells
+
+  table
+}
+
 #' Drop all statistics columns from a table.
 #'
 #' Delete from a table all columns that contain statistics
@@ -120,4 +153,49 @@ hmisc_intercept_cleanup <- function(table)
   })
 
   del_row(table, 2)
+}
+
+#' Add indentations to left column row headers
+#'
+#' Add indentations to left column row headers. Note: will only work on cell_header cells.
+#'
+#' @param table Output of tangram::tangram()
+#' @param rows numeric; A vector of numeric row numbers for the rows that need to be indented. Defaults to NULL which indents all.
+#' @param amounts numeric; Specifies number of spaces to add. A vector that is either a single value or vector of the same size as the height of the table. If positions is specified then it must be the same length. Defaults to 2, which each pair of spaces converts naturally in rendering to HTML, LaTeX, etc..
+#' @param columns numeric; Column to apply indent to, defaults to 1
+#' @return the modified table
+#' @export
+#' @examples
+#' x <- tangram(drug ~ bili + albumin, pbc)
+#' add_indent(x)
+#' add_indent(x, amounts=10)
+#' add_indent(x, amounts=c(0, 0, 2, 4))
+#' add_indent(x, rows=c(3))
+#' add_indent(x, rows=c(3, 4), amounts=c(4, 2))
+add_indent <- function(table, amounts=2, rows=NULL, columns=NULL)
+{
+  if(!is.null(rows) && length(amounts) > 1 && length(rows) != length(amounts)) stop("tangram::add_indent rows length must match amounts length")
+  if(is.null(rows)) rows <- 1:length(table) # Defaults to all rows
+  if(is.null(columns)) columns <- 1 # Defaults to first column
+
+  if(length(amounts) == 1) amounts <- rep(amounts, length(rows))
+  for(i in 1:length(rows))
+  {
+    row     <- rows[i]
+    amount  <- amounts[i]
+
+    for(column in columns)
+    {
+      if(nchar(table[[row]][[column]]) > 0)
+      {
+        x <- paste0(paste(rep(" ", amount), collapse=""), table[[row]][[column]])
+        class(x) <- class(table[[row]][[column]])
+        attributes(x) <- attributes(table[[row]][[column]])
+
+        table[[row]][[column]] <- x
+      }
+    }
+  }
+
+  table
 }

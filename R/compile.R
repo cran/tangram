@@ -241,12 +241,15 @@ cell_create_table <- function(ast, transforms, digits, ...)
 #'
 #' @param x object; depends on S3 type, could be rows, formula, string of a formula, data.frame or numerical rows, an rms.model
 #' @param after function or list of functions; one or more functions to further process an abstract table
+#' @param as.character logical; if true data.frames all variables are passed through as.character and no numerical summary is provided.
 #' @param colheader character; Use as column headers in final table
 #' @param cols numeric; An integer of the number of cols to create
 #' @param data data.frame; data to use for rendering tangram object
 #' @param digits numeric; default number of digits to use for display of numerics
 #' @param embedded logical; Will this table be embedded inside another
 #' @param footnote character; A string to add to the table as a footnote.
+#' @param quant numeric; A vector of quantiles to use for summaries
+#' @param msd logical; Include mean and standard deviation in numeric summary
 #' @param transforms list of lists of functions; that contain the transformation to apply for summarization
 #' @param rnd.digits numeric; Digits to round reference, comparison, result and CI values to. Defaults to 2.
 #' @param rnd.stats numeric; Digits to round model LR, R2, etc to. Defaults to rnd.digits.
@@ -282,43 +285,56 @@ tangram.numeric <- function(x, cols, embedded=FALSE, ...)
 
 #' @rdname tangram
 #' @export
-tangram.data.frame <- function(x, colheader=NA, ...)
+tangram.data.frame <- function(x, colheader=NA, ..., quant=seq(0,1,0.25), msd=TRUE, as.character=NULL)
 {
   cls <- sapply(names(x), function(y) class(x[1,y]))
+
+  if(is.null(as.character)) as.character <- !any(!cls %in% c("character", "NULL", "labelled"))
+
   # Check for non-character
-  if(any(!cls %in% c("character", "NULL") ))
+  if(!as.character)
   {
     nms <- names(cls)[cls %in% c("integer", "factor", "numeric")]
-    return(tangram(paste0("1~", paste0(nms, collapse='+')), x, quant=seq(0,1,0.25), msd=TRUE, ...))
+    return(tangram(paste0("1~", paste0(nms, collapse='+')), x, quant=quant, msd=msd, ...))
   }
 
-  roffset <- if(any(is.na(colheader))) 1 else 2
   width   <- length(colnames(x)) + 1
-  height  <- length(rownames(x)) + roffset
+  height  <- length(rownames(x)) + 1
   tbl     <- tangram(height, width, FALSE)
-
-
-  if(!any(is.na(colheader))) tbl[[2]][[1]] <- cell_subheader("")
 
   sapply(2:width, FUN=function(col_idx) {
     if(any(is.na(colheader)))
     {
-      tbl[[1]][[col_idx]] <<- cell_header(colnames(x)[col_idx-1])
+      lbl <- attr(x[,col_idx-1], "label")
+      if(is.null(lbl)) lbl <- colnames(x)[col_idx-1]
+      tbl[[1]][[col_idx]] <<- cell_header(lbl)
     } else {
       tbl[[1]][[col_idx]] <<- cell_header(colheader[col_idx-1])
-      tbl[[2]][[col_idx]] <<- cell_subheader(colnames(x)[col_idx-1])
     }
-    sapply((roffset+1):height, FUN=function(row_idx) {
-       tbl[[row_idx]][[col_idx]] <<- cell_label(trimws(x[row_idx-roffset,col_idx-1]))
+    sapply(2:height, FUN=function(row_idx) {
+      if(col_idx > 2)
+      {
+        tbl[[row_idx]][[col_idx]] <<- cell(
+          trimws(x[row_idx-1,col_idx-1],which="right"),
+          class="data",
+          parity=ifelse(row_idx %% 2==0, "even", "odd"))
+      } else
+      {
+        tbl[[row_idx]][[col_idx]] <<- cell_header(
+          trimws(x[row_idx-1,col_idx-1],which="right"),
+          parity=ifelse(row_idx %% 2==0, "even", "odd"))
+      }
     })
   })
 
   if(any(rownames(x) != as.character(1:(height - 1))))
   {
     tbl[[1]][[1]] <- cell_header("")
-    sapply((roffset+1):height, FUN=function(row_idx) {
-      tbl[[row_idx]][[1]] <<- cell_header(rownames(x)[row_idx-roffset])
+    sapply(2:height, FUN=function(row_idx) {
+      tbl[[row_idx]][[1]] <<- cell_header(rownames(x)[row_idx-1])
     })
+  } else {
+    tbl <- del_col(tbl, 1)
   }
 
   tbl
@@ -328,13 +344,21 @@ tangram.data.frame <- function(x, colheader=NA, ...)
 #' @export
 tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, digits=NA, ...)
 {
+  if(length(class(data)) > 1 || class(data) != "data.frame") data <- as.data.frame(data)
+  if(length(class(data)) > 1 || class(data) != "data.frame") stop("data must be supplied as data frame")
+
   # Helper function for single transform function
   if(!inherits(transforms, "list"))
   {
     transforms <- list(
       Type = function(x) {"Data"}, # Short circuit data type determination
       Data = list(
-        Data = transforms
+        Data = transforms,
+        ASTMultiply = transforms
+      ),
+      ASTMultiply = list(
+        Data = transforms,
+        ASTMultiply = transforms
       )
     )
   }
@@ -359,3 +383,38 @@ tangram.character <- function(x, data, transforms=hmisc_style, after=NA, digits=
   tangram.formula(x, data, transforms, after, digits, ...)
 }
 
+#' @rdname tangram
+#' @export
+tangram.table <- function(x, ...)
+{
+  tbl <- tangram(1,1)
+
+  if(is.null(dim(x)) || length(dim(x)) == 1)
+  {
+    tbl[[1]][[1]] <- cell_header("")
+    sapply(1:length(x), function(i) tbl[[1]][[i+1]] <<- cell_header(names(x)[i]))
+    tbl[[2]] <- list(cell_header(if(is.null(attr(x, "label"))) "" else attr(x, "label")))
+    sapply(1:length(x), function(i) tbl[[2]][[i+1]] <<- cell(as.numeric(x[i])))
+  } else if(length(dim(x)) == 2)
+  {
+    tbl[[1]][[1]] <- cell_header("")
+    sapply(1:(dim(x)[1]), function(i) tbl[[1]][[i+1]] <<- cell_header(colnames(x)[i]))
+
+    sapply(1:(dim(x)[1]), function(i) {
+      tbl[[i+1]] <<- list(cell_header(if(is.null(rownames(x))) "" else rownames(x)[i]))
+      sapply(1:(dim(x)[2]), function(j) tbl[[i+1]][[j+1]] <<- cell(as.numeric(x[i,j])))
+    })
+  } else
+  {
+    stop("Tables above 2 dimensions are not supported.")
+  }
+
+  tbl
+}
+
+#' @rdname tangram
+#' @export
+tangram.tbl_df <- function(x, ...)
+{
+  tangram(as.data.frame(x), as.character=TRUE)
+}

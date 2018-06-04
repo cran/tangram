@@ -345,28 +345,83 @@ add_row <- function(table_builder, ...)
     cursor_down()
   })
 }
-#'
-#' #' @export
-#' cbind.tangram <- function(..., deparse.level=1)
-#' {
-#'
-#' }
-#'
-#' #' @export
-#' cbind.table_builder <- function(..., deparse.level=1)
-#' {
-#'
-#' }
-#'
-#' #' @export
-#' rbind.tangram <- function(..., deparse.level=1)
-#' {
-#'
-#' }
-#'
-#' #' @export
-#' rbind.table_builder <- function(..., deparse.level=1)
-#' {
-#'
-#' }
 
+#' A cbind for generated table tangram objects.
+#'
+#' Execute the equivalent of an cbind for generated tables
+#'
+#' @param ... tangram objects to cbind
+#' @param deparse.level numeric; not used
+#' @return A merged tangram object
+#' @export
+cbind.tangram <- function(..., deparse.level=1)
+{
+  elements <- list(...)
+
+  x <- elements[[1]]
+
+  for(i in 2:length(elements))
+  {
+    z <- elements[[i]]
+    len <- length(z)
+
+    if(len != length(x)) warning("Mismatched row size in cbind.tangram")
+
+    for(j in 1:len)
+    {
+      x[[j]] <- c(x[[j]], z[[j]])
+    }
+  }
+
+  x
+}
+
+#' Provide a "|" operator for cbind of tangram tables
+#'
+#' The pipe operator provides an cbind for tangram tables
+#'
+#' @name pipe.tangram
+#' @param x left argument for rbind
+#' @param y right argument for rbind
+#' @rdname pipe.tangram
+#' @return A column wise merged tangram object
+#' @export
+"|.tangram" <- function(x, y) cbind(x,y)
+
+
+#' An rbind for generated tables tangram objects.
+#'
+#' Execute the equivalent of an rbind for generated tables
+#'
+#' @param ... tangram objects to rbind
+#' @param deparse.level numeric; not used
+#' @return A merged tangram object
+#' @export
+rbind.tangram <- function(..., deparse.level=1)
+{
+  elements <- list(...)
+  x <- NULL
+  for(i in 2:length(elements))
+  {
+    z <- elements[[i]]
+    len <- length(z[[1]])
+    while("cell_header" %in% class(z[[1]][[len]])) z <- del_row(z, 1)
+    x <- c(elements[[i-1]], z)
+  }
+
+  class(x) <- c("tangram", "list")
+  attr(x, "embedded") <- FALSE
+  attr(x, "footnote") <- attr(elements[[i]], "footnote")
+
+  x
+}
+
+#' Provide a "+" operator for rbind of tangram tables
+#'
+#' The plus operator provides an rbind for tangram tables
+#'
+#' @param x left argument for rbind
+#' @param y right argument for rbind
+#' @return A row wise merged tangram object
+#' @export
+"+.tangram" <- function(x, y) rbind(x,y)

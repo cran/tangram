@@ -6,6 +6,8 @@
 \alias{tangram.data.frame}
 \alias{tangram.formula}
 \alias{tangram.character}
+\alias{tangram.table}
+\alias{tangram.tbl_df}
 \alias{tangram.rms}
 \title{Table creation methods}
 \usage{
@@ -13,13 +15,18 @@ tangram(x, ...)
 
 \method{tangram}{numeric}(x, cols, embedded = FALSE, ...)
 
-\method{tangram}{data.frame}(x, colheader = NA, ...)
+\method{tangram}{data.frame}(x, colheader = NA, ..., quant = seq(0, 1,
+  0.25), msd = TRUE, as.character = NULL)
 
 \method{tangram}{formula}(x, data, transforms = hmisc_style, after = NA,
   digits = NA, ...)
 
 \method{tangram}{character}(x, data, transforms = hmisc_style, after = NA,
   digits = NA, ...)
+
+\method{tangram}{table}(x, ...)
+
+\method{tangram}{tbl_df}(x, ...)
 
 \method{tangram}{rms}(x, data = NULL, short.labels = NULL,
   footnote = NULL, rnd.digits = 2, rnd.stats = rnd.digits, ...)
@@ -34,6 +41,12 @@ tangram(x, ...)
 \item{embedded}{logical; Will this table be embedded inside another}
 
 \item{colheader}{character; Use as column headers in final table}
+
+\item{quant}{numeric; A vector of quantiles to use for summaries}
+
+\item{msd}{logical; Include mean and standard deviation in numeric summary}
+
+\item{as.character}{logical; if true data.frames all variables are passed through as.character and no numerical summary is provided.}
 
 \item{data}{data.frame; data to use for rendering tangram object}
 

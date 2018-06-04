@@ -132,6 +132,13 @@ summary.cell_label <- function(object, ...)
 
 #' @rdname summary
 #' @export
+summary.cell_spearman <- function(object, ...)
+{
+  paste0("S=",object[1],", ","P=",object[3])
+}
+
+#' @rdname summary
+#' @export
 summary.cell_iqr <- function(object, ...)
 {
   mid <- floor(length(object)/2) + 1
@@ -185,6 +192,8 @@ summary.cell_chi2 <- function(object, ...)
   paste0("X^2_", object[2], "=", object[1], ", P=", object[3])
 }
 
+#' @rdname summary
+#' @export
 summary.cell_studentt <- function(object, ...)
 {
   paste0("t_", object[2], "=", object[1], ", P=", object[3])

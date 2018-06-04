@@ -36,11 +36,11 @@ latex(object, ...)
 
 \method{latex}{cell_estimate}(object, ...)
 
-\method{latex}{cell_fstat}(object, ...)
+\method{latex}{cell_fstat}(object, style = "", ...)
 
-\method{latex}{cell_fraction}(object, ...)
+\method{latex}{cell_fraction}(object, style = "", ...)
 
-\method{latex}{cell_chi2}(object, ...)
+\method{latex}{cell_chi2}(object, style = "", ...)
 
 \method{latex}{cell_studentt}(object, ...)
 
@@ -48,12 +48,15 @@ latex(object, ...)
 
 \method{latex}{tangram}(object, caption = "Table", footnote = NULL,
   fragment = TRUE, filename = NULL, append = FALSE, na.blank = TRUE,
-  cgroup.just = NULL, arraystretch = 1.2, ...)
+  cgroup.just = NULL, arraystretch = 1.2, pct_width = 1,
+  placement = "H", style = "", ...)
 }
 \arguments{
 \item{object}{object; the item to render to latex}
 
 \item{...}{additional arguments}
+
+\item{style}{character; can be null or "nejm" for different table styling}
 
 \item{caption}{character; Caption to display on table}
 
@@ -70,6 +73,10 @@ latex(object, ...)
 \item{cgroup.just}{character; The text of the column justification used in the table}
 
 \item{arraystretch}{numeric; The arraystretch parameter used for vertical spacing}
+
+\item{pct_width}{numeric; a scaling to be applied to the entire table}
+
+\item{placement}{character; placement directive, defaults to "H"}
 }
 \value{
 the LaTeX rendering
@@ -78,13 +85,12 @@ the LaTeX rendering
 Each of these methods will render the cell object as a LaTeX fragment
 }
 \examples{
+\dontrun{
 latex(cell_label("123"))
 latex(cell_iqr(rnorm(20)))
 latex(cell_estimate(2.1,0.8, 3.3))
 latex(cell_fraction(45, 137))
-latex(table_builder()   \%>\%
-        row_header("row") \%>\%
-        col_header(1,2,3) \%>\%
-        add_col("A","B","C"))
-latex(tangram(drug~bili, pbc))
+tbl <- tangram(drug~bili, pbc)
+latex(tbl)
+}
 }

@@ -5,7 +5,7 @@
 \title{Create a summarization for a categorical row versus a categorical column}
 \usage{
 summarize_chisq(table, row, column, pformat = NULL, collapse_single = TRUE,
-  overall = NULL, ...)
+  overall = NULL, test = TRUE, row_percents = FALSE, ...)
 }
 \arguments{
 \item{table}{The table object to modify}
@@ -14,11 +14,15 @@ summarize_chisq(table, row, column, pformat = NULL, collapse_single = TRUE,
 
 \item{column}{The column variable to use (categorical)}
 
-\item{pformat}{numeric or character; A formatting directive to be applied to p-values}
+\item{pformat}{numeric, character or function; A formatting directive to be applied to p-values}
 
 \item{collapse_single}{logical; default TRUE. Categorical variables with a two values collapse to single row.}
 
 \item{overall}{logical; Include the overall summary column}
+
+\item{test}{logical; include statistical test results}
+
+\item{row_percents}{logical; use denominator across rows instead of columns.}
 
 \item{...}{absorbs extra parameters. Currently unused.}
 }

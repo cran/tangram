@@ -14,6 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+rtf_escape <- function(object)
+{
+  gsub("\\^(.)\\^", "{\\\\super \\1}", object, fixed=FALSE)
+}
+
 #' Default conversion to RTF for an abstract table element
 #'
 #' Gives a warning and produces an empty cell
@@ -29,6 +34,9 @@ rtf.default <- function(object, id, ...)
   warning(paste("rtf unhandled class : ", base::class(object), collapse=', '))
   ""
 }
+
+#' @export
+rtf.character <- function(object, id, ...) object
 
 #'
 #' Given a cell_label class create an RTF representation.
@@ -47,9 +55,9 @@ rtf.cell_label <- function(object, id, ..., point=18)
   label <- gsub("\\*", "X\n  ", label)
 
   if(is.null(attr(object, "units")))
-      label
+      rtf_escape(label)
   else
-      paste0(label,
+      paste0(rtf_escape(label),
             " {\\fs", round(point*1.6),
             "\\i\\b0 ",
             attr(object, "units"),
@@ -140,12 +148,23 @@ rtf.cell_iqr <- function(object, id, ..., point=9)
   large <- paste0("\\fs", round(point*2.0), " ")
 
   mid   <- floor(length(object)/2) + 1
-  paste0("{",
-                 small, paste0(object[1:(mid-1)], collapse=''),
-         " \\b", large, paste0(object[mid], collapse=''),
-         " \\b0",small, paste0(object[(mid+1):length(object)], collapse=''),
-         "}")
+  # Hmisc style
+  # paste0("{",
+  #                small, paste0(object[1:(mid-1)], collapse=''),
+  #        " \\b", large, paste0(object[mid], collapse=''),
+  #        " \\b0",small, paste0(object[(mid+1):length(object)], collapse=''),
+  #        "}")
+  paste0(
+    paste0(object[mid], collapse=''),
+    " [",
+    paste0(object[1:(mid-1)], collapse=''),
+    ", ",
+    paste0(object[(mid+1):length(object)], collapse=''),
+    "]"
+  )
 }
+
+
 
 dttm_datetime <- function()
 {
@@ -216,6 +235,36 @@ rtf.cell_fstat <- function(object, id, ...)
   )
 }
 
+#' Convert an abstract cell_chi2 object into an rtf string
+#'
+#' Given a cell_chi2 class create an rtf representation.
+#'
+#' @param object The cell chi2 to render to HTML5
+#' @param id A unique identifier for traceability
+#' @param ... additional arguments to renderer. Unused
+#' @return A text string rendering of the given chi2 in rtf
+#' @export
+#'
+rtf.cell_chi2 <- function(object, id, ...)
+{
+  idx <- index(object, id)
+
+  reference <- attr(object, "reference")
+  ref <- if(is.null(reference)) "" else paste0("{\\super ", reference, "}")
+  idx <- comments(object, id)
+
+  paste0(
+    "{",
+      "{\\*\\atrfstart 1}",
+      "X{\\sub ",
+      object[2], "}=",object[1],
+      ", P=", object[3],
+    "}",
+    idx,
+    ref
+  )
+}
+
 #' Given a cell class create an RTF representation.
 #'
 #' @param object The cell to render to RTF
@@ -224,7 +273,14 @@ rtf.cell_fstat <- function(object, id, ...)
 #' @return An RTF string rendering of the given cell.
 #' @export
 #'
-rtf.cell <- function(object, id, ...) ""
+rtf.cell <- function(object, id, ...) paste(object, collapse=' ')
+
+
+#' @export
+rtf.cell_fraction <- function(object, id, ...)
+{
+  paste0(object[4], "% (", object[1], ")")
+}
 
 est_column_widths <- function(object)
 {
@@ -358,5 +414,5 @@ rtf.tangram <- function(
 
   if(!is.na(filename)) cat(result, file=filename, append=append)
 
-  result
+  invisible(result)
 }
