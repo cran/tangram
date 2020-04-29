@@ -5,16 +5,9 @@
 \alias{latex.default}
 \alias{latex.cell}
 \alias{latex.cell_label}
-\alias{latex.cell_n}
+\alias{latex.logical}
 \alias{latex.cell_header}
 \alias{latex.cell_subheader}
-\alias{latex.cell_iqr}
-\alias{latex.cell_estimate}
-\alias{latex.cell_fstat}
-\alias{latex.cell_fraction}
-\alias{latex.cell_chi2}
-\alias{latex.cell_studentt}
-\alias{latex.cell_spearman}
 \alias{latex.tangram}
 \title{Render to LaTeX methods for tangram cell objects}
 \usage{
@@ -22,61 +15,30 @@ latex(object, ...)
 
 \method{latex}{default}(object, ...)
 
-\method{latex}{cell}(object, ...)
+\method{latex}{cell}(object, na.blank = TRUE, ...)
 
 \method{latex}{cell_label}(object, ...)
 
-\method{latex}{cell_n}(object, ...)
+\method{latex}{logical}(object, ...)
 
 \method{latex}{cell_header}(object, ...)
 
 \method{latex}{cell_subheader}(object, ...)
 
-\method{latex}{cell_iqr}(object, ...)
-
-\method{latex}{cell_estimate}(object, ...)
-
-\method{latex}{cell_fstat}(object, style = "", ...)
-
-\method{latex}{cell_fraction}(object, style = "", ...)
-
-\method{latex}{cell_chi2}(object, style = "", ...)
-
-\method{latex}{cell_studentt}(object, ...)
-
-\method{latex}{cell_spearman}(object, ...)
-
-\method{latex}{tangram}(object, caption = "Table", footnote = NULL,
-  fragment = TRUE, filename = NULL, append = FALSE, na.blank = TRUE,
-  cgroup.just = NULL, arraystretch = 1.2, pct_width = 1,
-  placement = "H", style = "", ...)
+\method{latex}{tangram}(object, fragment = TRUE, filename = NULL, append = FALSE, ...)
 }
 \arguments{
 \item{object}{object; the item to render to latex}
 
 \item{...}{additional arguments}
 
-\item{style}{character; can be null or "nejm" for different table styling}
-
-\item{caption}{character; Caption to display on table}
-
-\item{footnote}{character; Footnote to include on table}
+\item{na.blank}{logical; Dispaly NAs as blanks.}
 
 \item{fragment}{logical; Is this a complete LaTeX document or just the table fragment}
 
 \item{filename}{character; filename to write LaTex into}
 
 \item{append}{logical; Should the write be an append operation or overwrite}
-
-\item{na.blank}{logical; Should NA's be displayed as blanks}
-
-\item{cgroup.just}{character; The text of the column justification used in the table}
-
-\item{arraystretch}{numeric; The arraystretch parameter used for vertical spacing}
-
-\item{pct_width}{numeric; a scaling to be applied to the entire table}
-
-\item{placement}{character; placement directive, defaults to "H"}
 }
 \value{
 the LaTeX rendering
@@ -84,13 +46,28 @@ the LaTeX rendering
 \description{
 Each of these methods will render the cell object as a LaTeX fragment
 }
+\details{
+There are addition arguments possible to control the rendering, but
+due to some oddities between CRAN requirements and how R handles defaults
+(for full details see the source code)
+they are as follows
+
+* cgroup.just character; The text of the column justification used in the table
+
+* arraystretch numeric; The arraystretch parameter used for vertical spacing
+
+* style character; can be null or "nejm" for different table styling
+
+* pct_width numeric; a scaling to be applied to the entire table
+
+* placement character; placement directive, defaults to "H"
+}
 \examples{
 \dontrun{
 latex(cell_label("123"))
-latex(cell_iqr(rnorm(20)))
-latex(cell_estimate(2.1,0.8, 3.3))
-latex(cell_fraction(45, 137))
-tbl <- tangram(drug~bili, pbc)
+latex(hmisc_iqr(rnorm(20)))
+latex(hmisc_fraction(45, 137))
+tbl <- tangram(drug~bili, pbc, "tbl")
 latex(tbl)
 }
 }

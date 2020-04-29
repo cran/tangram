@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,37 +38,74 @@ cell_transform <- function(FUN, ...)
   }
 }
 
-#' Delete a given column from a table
+#' Delete given column(s) from a table
 #'
 #' Given a table, remove the specified column
 #' @param table the table to modify
-#' @param col the number of the column to drop
+#' @param col vector containing column(s) to drop
 #' @return the modified table
 #' @export
 del_col <- function(table, col)
 {
-  sapply(1:length(table), function(row) {
-    cols <- length(table[[row]])
-    if(col < cols) sapply((col+1):cols, function(i) table[[row]][[i-1]] <<- table[[row]][[i]])
-    table[[row]][[cols]] <<- NULL
+  sapply(sort(col, decreasing = TRUE), function(col) {
+    sapply(1:length(table), function(row) {
+      cols <- length(table[[row]])
+      if(col < cols) sapply((col+1):cols, function(i) table[[row]][[i-1]] <<- table[[row]][[i]])
+      table[[row]][[cols]] <<- NULL
+    })
   })
   table
 }
 
-#' Delete a given row from a table
+#' Delete a row(s) from a table
 #'
 #' Given a table, remove the specified row
 #' @param table the table to modify
-#' @param row the number of the row to drop
+#' @param row vector with row numbers to drop
 #' @return the modified table
 #' @export
 del_row <- function(table, row)
 {
-  rows <- length(table)
-  if(row < rows)
-    sapply((row+1):rows, function(i) table[[i-1]] <<- table[[i]])
-  table[[rows]] <- NULL
+  sapply(sort(row, decreasing = TRUE), function(row) {
+    rows <- length(table)
+    if(row < rows) sapply((row+1):rows, function(i) table[[i-1]] <<- table[[i]])
+    table[[rows]] <<- NULL
+  })
   table
+}
+
+#' Select given column(s) from a table
+#'
+#' Given a table, select the specified column(s)
+#' @param table the table to modify
+#' @param col vector containing column(s) to select
+#' @return the modified table
+#' @export
+select_col <- function(table, col)
+{
+  if(length(table) == 0) return(table)
+
+  icol <- 1:length(table[[1]])
+  icol <- icol[!icol %in% col]
+
+  del_col(table, icol)
+}
+
+#' Select given row(s) from a table
+#'
+#' Given a table, select the specified rows
+#' @param table the table to modify
+#' @param row vector with row numbers to select
+#' @return the modified table
+#' @export
+select_row <- function(table, row)
+{
+  if(length(table) == 0) return(table)
+
+  irow <- 1:length(table)
+  irow <- irow[!irow %in% row]
+
+  del_row(table, irow)
 }
 
 #' Insert a row into a tangram table
@@ -78,16 +115,17 @@ del_row <- function(table, row)
 #' @param table the table to modify
 #' @param after numeric; The row to position the new row after. Can be zero for inserting a new first row.
 #' @param ... Table cells to insert. Cannot be larger than existing table.
+#' @param class character; Classes to apply as directives to renderers
 #' @return the modified table
 #' @export
-insert_row <- function(table, after, ...)
+insert_row <- function(table, after, ..., class=NULL)
 {
   # Get the cells from ..., and make sure they are cells
-  cells <- lapply(list(...), FUN=function(x) if("cell" %in% class(x)) x else cell(x))
+  cells <- lapply(list(...), FUN=function(x) if("cell" %in% class(x)) x else cell(x, class=class) )
   N     <- length(table)
 
   # Check for mismatch in arguments
-  if(length(cells) > N) stop("tangram::insert_row() number of cells provided larger than current row size")
+  if(length(cells) > length(table[[1]])) stop("tangram::insert_row() number of cells provided larger than current number of columns")
   if(after > N) stop("tangram::insert_row() after parameter larger than number of rows")
   if(after < 0) stop("tangram::insert_row() negative after row")
 
@@ -100,6 +138,78 @@ insert_row <- function(table, after, ...)
 
   # Put in the row
   table[[after+1]] <- cells
+
+  table
+}
+
+#' Insert a column into a tangram table
+#'
+#' Insert a column into a tangram table. Will fill with empty cells is not enough cells are specified.
+#'
+#' @param table the table to modify
+#' @param after numeric; The column to position the new row after. Can be zero for inserting a new first row.
+#' @param ... Table cells to insert. Cannot be larger than existing table.
+#' @param class character; Classes to apply as directives to renderers
+#' @return the modified table
+#' @export
+insert_column <- function(table, after, ..., class=NULL)
+{
+  # Get the cells from ..., and make sure they are cells
+  cells <- lapply(list(...), FUN=function(x) if("cell" %in% class(x)) x else cell(x, class=class) )
+  nrows <- length(table)
+  ncols <- length(table[[1]])
+
+  # Check for mismatch in arguments
+  if(length(cells) > nrows) stop("tangram::insert_column() number of cells provided larger than current number of rows")
+  if(after > nrows) stop("tangram::insert_column() after parameter larger than number of rows")
+  if(after < 0) stop("tangram::insert_column() negative after column")
+
+  # Make room
+  for(i in 1:nrows)
+  {
+    if(after < ncols) for(j in ncols:(after+1)) table[[i]][[j+1]] <- table[[i]][[j]]
+
+    # Fill in blanks, just in case
+    table[[i]][[after+1]] <- cell_label("")
+  }
+
+  # Put in the column
+  for(i in 1:length(cells)) table[[i]][[after+1]] <- cells[[i]]
+
+  table
+}
+
+#' Replace a cell's contents
+#'
+#' Replace a cell in a table
+#'
+#' @param table the tangram table to modify
+#' @param row numeric; The row to modify
+#' @param col numeric; The column to modify
+#' @param object The cell or object to replace in a table
+#' @param ... Additional parameters passed to cell function if not given a cell object
+#' @return the modified table
+#' @export
+replace_cell <- function(table, row, col, object, ...)
+{
+  table[[row]][[col]] <- if(inherits(object, "cell")) object else cell(object, ...)
+
+  table
+}
+
+#' Add a footnote to a table
+#'
+#' Add a footnote to a table
+#'
+#' @param table tangram; the tangram table to modify
+#' @param footnote character; The footnote to add
+#' @return the modified table
+#' @export
+add_footnote <- function(table, footnote)
+{
+  footnotes <- attr(table, "footnote")
+
+  attr(table, "footnote") <- if(is.null(footnotes)) footnotes else paste(footnotes, footnote)
 
   table
 }
@@ -136,23 +246,7 @@ drop_statistics <- function(table)
 #' @export
 hmisc_intercept_cleanup <- function(table)
 {
-  table <- drop_statistics(table)
-
-  # Roll up header here
-  sapply(1:length(table[[1]]), function(col)
-  {
-    up    <- table[[1]][[col]]
-    below <- table[[2]][[col]]
-
-    if(!("cell_label" %in% class(up)) ||
-       up == "")
-    {
-      class(below) <- class(below)[length(class(below))]
-      table[[1]][[col]] <<- below
-    }
-  })
-
-  del_row(table, 2)
+  del_col(del_row(table, 2), 4)
 }
 
 #' Add indentations to left column row headers

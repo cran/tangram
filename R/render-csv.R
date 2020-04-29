@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,47 +53,6 @@ csv.tangram <- function(object, file=NULL, sep=',', ...)
 
 #' @rdname csv
 #' @export
-csv.cell_subheader <- function(object, ...)
-{
-  if(nchar(object) < 1) object <- " "
-  paste0("\"_", object, "_\"")
-}
-
-#' @rdname csv
-#' @export
-csv.cell_header <- function(object, ...)
-{
-  if(nchar(object) < 1) object <- " "
-  paste0("\"**", object, "**\"")
-}
-
-
-#' @rdname csv
-#' @export
-csv.cell_fstat <- function(object, ...)
-{
-  paste0("F~", object[2], ",", object[3], "~=", object[1], ", P=", object[4])
-}
-
-#' @rdname csv
-#' @export
-csv.cell_chi2 <- function(object, ...)
-{
-  paste0("X^2^~", object[2], "~=", object[1], ", P=", object[3])
-}
-
-#' @rdname csv
-#' @export
-csv.cell_studentt <- function(object, ...)
-{
-  paste0("t~", object[2], "~=", object[1], ", P=", object[3])
-}
-
-#' @rdname csv
-#' @export
 csv.default <- function(object, ...) paste0("\"", summary(object), "\"", collapse='')
 
-#' @rdname csv
-#' @export
-csv.table_builder <- function(object,...) csv(table_flatten(object$table))
 

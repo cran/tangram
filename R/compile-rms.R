@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ rms_variable <- function(model.sum,
 {
   results <- model.anova[var,]
 
-  tbl <- table_builder()
+  tbl <- tangram(1,1)
 
   tbl <- if(lowhigh) {
            col_header(tbl, "", "", model.name, "") %>%
@@ -122,11 +122,11 @@ rms_variable <- function(model.sum,
   if(lowhigh)
   {
     tbl <- if(var %in% rownames(model.sum)){
-      tbl                                                                           %>%
-      add_col(cell_estimate(render_f(model.sum[var, 'Low'], rnd.digits),
-                            src=paste(var, ":Low", sep='')))                        %>%
-      add_col(cell_estimate(render_f(model.sum[var, 'High'], rnd.digits),
-                            src=paste(var, ":High",sep='')))
+      tbl                                                                          %>%
+      add_col(render_f(model.sum[var, 'Low'], rnd.digits),
+                            src=paste(var, ":Low", sep=''))                        %>%
+      add_col(render_f(model.sum[var, 'High'], rnd.digits),
+                            src=paste(var, ":High",sep=''))
     } else {
       add_col(tbl, "", "")
     }
@@ -134,21 +134,22 @@ rms_variable <- function(model.sum,
 
   tbl <- if(var %in% rownames(model.sum))
   {
-    add_col(tbl, cell_estimate(render_f(model.sum[var, 'Effect'], rnd.digits),
-      low= render_f(model.sum[var,'Lower 0.95'], rnd.digits),
-      high=render_f(model.sum[var,'Upper 0.95'], rnd.digits),
+    add_col(tbl, paste0(
+      render_f(model.sum[var, 'Effect'], rnd.digits),
+      " [", render_f(model.sum[var,'Lower 0.95'], rnd.digits), ",",
+      render_f(model.sum[var,'Upper 0.95'], rnd.digits), "]"),
       src=paste(var,":Effect")
-    ))
+    )
   } else {
     add_col(tbl, "")
   }
 
   add_col(tbl,
-    cell_fstat(f   = render_f(results['F'], "%.2f"),
-               n1  = results['d.f.'],
-               n2  = model.anova['ERROR','d.f.'],
-               p   = render_f(results['P'], "%1.3f"),
-               src = paste(var,":Test",sep='')))
+    hmisc_fstat(f   = render_f(results['F'], "%.2f"),
+                n1  = results['d.f.'],
+                n2  = model.anova['ERROR','d.f.'],
+                p   = render_f(results['P'], "%1.3f"),
+                src = paste(var,":Test",sep='')))
 }
 
 rms_stats <- function(model.anova, lowhigh)
@@ -159,30 +160,30 @@ rms_stats <- function(model.anova, lowhigh)
 
   padding <- function(tbl) if(lowhigh) add_col(tbl, "", "", "") else tbl
 
-  table_builder()                                             %>%
+  tangram(1,1)                                                %>%
   row_header("All Nonlinear & Interaction Terms")             %>%
-  padding()                                                   %>%
-  add_col(cell_fstat(f   = render_f(anit['F'], "%.2f"),
-                     n1  = anit['d.f.'],
-                     n2  = model.anova['ERROR','d.f.'],
-                     p   = render_f(anit['P'], "%1.3f"),
-                     src = paste("NonlinearAndInteraction",":Test",sep='')))        %>%
+  padding()
+  add_col(hmisc_fstat(f   = render_f(anit['F'], "%.2f"),
+                      n1  = anit['d.f.'],
+                      n2  = model.anova['ERROR','d.f.'],
+                      p   = render_f(anit['P'], "%1.3f"),
+                      src = paste("NonlinearAndInteraction",":Test",sep='')))        %>%
   new_line()                                                  %>%
   row_header("All Nonlinear Terms", sub=FALSE)                %>%
   padding()                                                   %>%
-  add_col(cell_fstat(f   = render_f(ant['F'], "%.2f"),
-                     n1  = ant['d.f.'],
-                     n2  = model.anova['ERROR','d.f.'],
-                     p   = render_f(ant['P'], "%1.3f"),
-                     src = paste("NonlinearTerms",":Test",sep='')))        %>%
+  add_col(hmisc_fstat(f   = render_f(ant['F'], "%.2f"),
+                      n1  = ant['d.f.'],
+                      n2  = model.anova['ERROR','d.f.'],
+                      p   = render_f(ant['P'], "%1.3f"),
+                      src = paste("NonlinearTerms",":Test",sep='')))        %>%
   new_line()                                                  %>%
   row_header("Overall Model", sub=FALSE)                      %>%
   padding()                                                   %>%
-  add_col(cell_fstat(f   = render_f(om['F'], "%.2f"),
-                     n1  = om['d.f.'],
-                     n2  = model.anova['ERROR','d.f.'],
-                     p   = render_f(om['P'], "%1.3f"),
-                     src = paste("OverallModel",":Test",sep='')))
+  add_col(hmisc_fstat(f   = render_f(om['F'], "%.2f"),
+                      n1  = om['d.f.'],
+                      n2  = model.anova['ERROR','d.f.'],
+                      p   = render_f(om['P'], "%1.3f"),
+                      src = paste("OverallModel",":Test",sep='')))
 }
 
 rms_model_fit <- function(rms.model, rnd.stats, lowhigh)
@@ -190,17 +191,17 @@ rms_model_fit <- function(rms.model, rnd.stats, lowhigh)
   results <- rms.model$stats
   padding <- function(x) if(lowhigh) add_col(x, "", "") else x
 
-  table_builder()                                             %>%
+  tangram(1,1)                                                %>%
   row_header("Model Likelihood Ratio")                        %>%
   padding()                                                   %>%
-  add_col(cell_estimate(render_f(results['Model L.R.'],rnd.stats),
-                        src=paste('ModelLR', sep='')))        %>%
+  add_col(render_f(results['Model L.R.'],rnd.stats),
+                        src=paste('ModelLR', sep=''))         %>%
   add_col("")                                                 %>%
   new_line()                                                  %>%
   row_header("R^2", sub=FALSE)                                %>%
   padding()                                                   %>%
-  add_col(cell_estimate(render_f(results['R2'],rnd.stats),
-                        src=paste('R2', sep='')))             %>%
+  add_col(render_f(results['R2'],rnd.stats),
+                        src=paste('R2', sep=''))              %>%
   add_col("")
 }
 
@@ -288,14 +289,14 @@ tangram.rms <- function(x,
         names(rms.model)[[col]],
         var, label, rnd.digits,
         col==1
-      )$table
+      )
     }
   }
 
   for(col in 1:length(rms.model))
   {
-    master_table[[length(vars)+1]][[col]] <- rms_stats(model.anova[[col]], col==1)$table
-    master_table[[length(vars)+2]][[col]] <- rms_model_fit(rms.model[[col]], rnd.stats, col==1)$table
+    master_table[[length(vars)+1]][[col]] <- rms_stats(model.anova[[col]], col==1)
+    master_table[[length(vars)+2]][[col]] <- rms_model_fit(rms.model[[col]], rnd.stats, col==1)
   }
 
   flat <- table_flatten(master_table)

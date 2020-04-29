@@ -2,14 +2,14 @@
 % Please edit documentation in R/compile-post.R
 \name{del_row}
 \alias{del_row}
-\title{Delete a given row from a table}
+\title{Delete a row(s) from a table}
 \usage{
 del_row(table, row)
 }
 \arguments{
 \item{table}{the table to modify}
 
-\item{row}{the number of the row to drop}
+\item{row}{vector with row numbers to drop}
 }
 \value{
 the modified table

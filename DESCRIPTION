@@ -1,10 +1,11 @@
 Package: tangram
 Title: The Grammar of Tables
-Version: 0.4
+Version: 0.7.1
 Authors@R: c(person("Shawn",    "Garbett",  email = "Shawn.Garbett@vumc.org",        role = c("aut", "cre")),
              person("Thomas",   "Stewart",  email = "Thomas.Stewart@Vanderbilt.edu", role = c("ctb")),
              person("Jennifer", "Thompson", email = "Jennifer.L.Thompson@vumc.org",  role = c("ctb")),
-             person("Frank",    "Harrell",  email = "F.Harrell@Vanderbilt.edu",      role = c("ctb"))
+             person("Frank",    "Harrell",  email = "F.Harrell@Vanderbilt.edu",      role = c("ctb")),
+             person("Ahra",     "Kim",      email = "Ahra.Kim@vumc.org",             role = c("ctb"))
              )
 Description: Provides an extensible formula system to quickly and easily create
     production quality tables. The steps of the process are formula parser,
@@ -21,24 +22,30 @@ Description: Provides an extensible formula system to quickly and easily create
 Author: Shawn Garbett [aut, cre],
   Thomas Stewart [ctb],
   Jennifer Thompson [ctb],
-  Frank Harrell [ctb]
+  Frank Harrell [ctb],
+  Ahra Kim [ctb]
 Maintainer: Shawn Garbett <Shawn.Garbett@vumc.org>
-Depends: R (>= 3.2.3), R6, magrittr
+Depends: R (>= 3.5.0), R6, magrittr, knitr
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Suggests: testthat, rms, knitr, rmarkdown, Hmisc
+Suggests: testthat, rms, rmarkdown, Hmisc, sandwich, dplyr, Matching,
+        epitools
 Imports: stringi, stringr, base64enc, digest, htmltools
-VignetteBuilder: knitr
-RoxygenNote: 6.0.1
-Collate: 'compile-cell.R' 'compile-operators.R' 'compile-post.R'
+RoxygenNote: 7.1.0
+Collate: 'compile-cell.R' 'cell-hmisc.R' 'cell-lancet.R' 'cell-nejm.R'
+        'compile-clmm2.R' 'compile-operators.R' 'compile-post.R'
         'parser.R' 'compile.R' 'compile-rms.R' 'compile-typing.R'
         'helper-format.R' 'hmisc-cut2.R' 'hmisc-lm.fit.qr.bare.R'
-        'hmisc-impute.R' 'hmisc-biVar.R' 'render-csv.R'
+        'hmisc-impute.R' 'hmisc-biVar.R' 'iify.R' 'render-csv.R'
         'render-html5.R' 'render-index.R' 'render-latex-map.R'
         'render-latex.R' 'render-rmd.R' 'render-rtf.R'
-        'render-summary.R' 'transform-hmisc.R' 'transform-proc-tab.R'
+        'render-summary.R' 'smd.R' 'transform-hmisc.R'
+        'transform-lancet.R' 'transform-nejm.R' 'transform-proc-tab.R'
+        'transform-smd.R'
 NeedsCompilation: no
-Packaged: 2018-06-04 21:00:10 UTC; garbetsp
+Packaged: 2020-04-28 15:55:02 UTC; garbetsp
+URL: https://github.com/spgarbet/tangram
+BugReports: https://github.com/spgarbet/tangram/issues
 Repository: CRAN
-Date/Publication: 2018-06-04 21:45:15 UTC
+Date/Publication: 2020-04-29 10:40:02 UTC

@@ -2,43 +2,12 @@
 % Please edit documentation in R/render-summary.R
 \name{summary.tangram}
 \alias{summary.tangram}
-\alias{summary.table_builder}
 \alias{summary.cell}
-\alias{summary.cell_label}
-\alias{summary.cell_spearman}
-\alias{summary.cell_iqr}
-\alias{summary.cell_range}
-\alias{summary.cell_estimate}
-\alias{summary.cell_fraction}
-\alias{summary.cell_fstat}
-\alias{summary.cell_chi2}
-\alias{summary.cell_studentt}
-\title{The default method for rendering tangram objects
-A tangram is a summary, so it returns itself. Otherwise convert to a text representation.}
+\title{The default method for rendering tangram objects}
 \usage{
 \method{summary}{tangram}(object, ...)
 
-\method{summary}{table_builder}(object, ...)
-
 \method{summary}{cell}(object, ...)
-
-\method{summary}{cell_label}(object, ...)
-
-\method{summary}{cell_spearman}(object, ...)
-
-\method{summary}{cell_iqr}(object, ...)
-
-\method{summary}{cell_range}(object, ...)
-
-\method{summary}{cell_estimate}(object, ...)
-
-\method{summary}{cell_fraction}(object, ...)
-
-\method{summary}{cell_fstat}(object, ...)
-
-\method{summary}{cell_chi2}(object, ...)
-
-\method{summary}{cell_studentt}(object, ...)
 }
 \arguments{
 \item{object}{object; the item to render}
@@ -49,15 +18,13 @@ A tangram is a summary, so it returns itself. Otherwise convert to a text repres
 the text summary
 }
 \description{
-The default method for rendering tangram objects
 A tangram is a summary, so it returns itself. Otherwise convert to a text representation.
 }
 \examples{
 summary(cell_label("123"))
-summary(cell_iqr(rnorm(20)))
-summary(cell_estimate(2.1,0.8, 3.3))
-summary(cell_fraction(45, 137))
-summary(table_builder()   \%>\%
+summary(hmisc_iqr(rnorm(20)))
+summary(hmisc_fraction(45, 137))
+summary(tangram(1,1)   \%>\%
         row_header("row") \%>\%
         col_header(1,2,3) \%>\%
         add_col("A","B","C"))

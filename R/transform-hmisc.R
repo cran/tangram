@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,22 +14,41 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#' Create a summarization for a categorical set of column versus a numerical row
+#' Style Bundle for Hmisc defaults
 #'
-#' Given a row and column object from the parser apply a Kruskal test and output
-#' the results horizontally. 1 X (n + no. categories + test statistic)
+#' List of lists, should contain a "Type" entry with a function to determine type of vector passed in.
+#' Next entries are keyed off returned types from function, and represent the type of a row.
+#' The returned list should contain the same list of types, and represents the type of a column. Thus it now returns
+#' a function to process the intersection of those two types.
+#' There are additionally a list of cell tranforms that can be overridden and a default
+#' footnote if none is specified.
+#'
 #'
 #' @param table The table object to modify
 #' @param row The row variable object to use (numerical)
 #' @param column The column variable to use (categorical)
+#' @param cell_style list; cell styling functions
+#' @param collapse_single logical; default TRUE. Categorical variables with a two values collapse to single row.
 #' @param pformat numeric, character or function; A formatting directive to be applied to p-values
 #' @param msd logical; Include mean and standard deviation with quantile statistics
 #' @param quant numeric; Vector of quantiles to include. Should be an odd number since the middle value is highlighted on display.
-#' @param overall logical; Include overall summary statistics for a categorical column
+#' @param overall logical or character; Include overall summary statistics for a categorical column. Character values are assumed to be true and used as column header.
+#' @param row_percents logical; use denominator across rows instead of columns.
 #' @param test logical; include statistical test results
+#' @param useNA character; Specifies whether to include NA counts in the table. The allowed values correspond to never "no" (Default), only if the count is positive "ifany" and even for zero counts "always". An NA column is always excluded.
 #' @param ... absorbs additional arugments. Unused at present.
 #' @return The modified table object
+#'
+#' @rdname hmisc
+#'
+#' @seealso \code{\link{hmisc_data_type}}, \code{\link{tangram}}, \code{\link{hmisc_cell}}
+#'
+#' @section \code{summarize_kruskal_horz}:
+#' Given a row and column object apply a Kruskal test and output
+#' the results horizontally. 1 X (n + no. categories + test statistic)
+#'
 #' @export
+#'
 #' @importFrom magrittr "%>%"
 #' @include hmisc-biVar.R
 #' @include compile.R
@@ -44,60 +63,60 @@
 summarize_kruskal_horz <- function(table,
                                    row,
                                    column,
+                                   cell_style,
                                    pformat=NULL,
                                    msd=FALSE,
                                    quant=c(0.25, 0.5, 0.75),
                                    overall=NULL,
-                                   test=TRUE,
+                                   test=FALSE,
                                    ...)
 {
-  pformat <- pfunc(pformat)
-
   # Treat overall as a label if it's character
-  overall_label <- if(is.null(overall)) "" else { if(is.character(overall)) overall else "Overall" }
-  overall       <- !is.null(overall)
-
-  datar      <- row$data
-  datac      <- as.categorical(column$data)
-  categories <- if(overall) c(levels(datac), overall_label) else levels(datac)
-
-  format <- ifelse(is.na(row$format), format_guess(datar), row$format)
+  overall_label <- if(is.character(overall)) overall else "Overall"
+  overall       <- column$value != "1" && (isTRUE(overall) || is.character(overall))
+  datar         <- row$data
+  datac         <- as.categorical(column$data)
+  categories    <- if(overall) c(levels(datac), overall_label) else levels(datac)
+  categories    <- if(length(categories) == 1) overall_label else categories
+  format        <- ifelse(is.na(row$format), format_guess(datar), row$format)
 
   # Compute N values for each category
   subN <- lapply(levels(datac), FUN=function(cat){
-    cell_n(length(datac[datac == cat & !is.na(datac)]), subcol=cat)
+    cell_style[['n']](length(datac[datac == cat & !is.na(datac)]), subcol=cat, hdr=TRUE, possible=length(datac), ...)
   })
 
-  if(overall) subN[[length(subN)+1]] <- cell_n( sum(!is.na(column$data)), subcol="Overall")
+  if(overall) subN[[length(subN)+1]] <- cell_style[['n']]( sum(!is.na(column$data)),
+                                           hdr=TRUE, subcol="Overall", possible=length(column$data), ...)
 
+  if(inherits(test, "function"))
+  {
+    stat <- test(row, column, cell_style, ...)
+    test <- TRUE
+  } else if(length(categories) == 1) stat <- "" else
   # Kruskal-Wallis via F-distribution
-  stat <- if(length(categories) == 1)
   {
-    cell(suppressWarnings(wilcox.test(datar)), pformat=pformat, reference="3")
-  }
-  else
-  {
-    stat  <- suppressWarnings(spearman2(datac, datar, na.action=na.retain))
-    cell_fstat(f         = render_f(stat['F'], "%.2f"),
-               df1       = stat['df1'],
-               df2       = stat['df2'],
-               p         = pformat(stat['P']),
-               reference = "1")
+    tst  <- suppressWarnings(spearman2(c(datac), c(datar), na.action=na.retain))
+    stat <- cell_style[['fstat']](
+        f         = render_f(tst['F'], "%.2f"),
+        df1       = tst['df1'],
+        df2       = tst['df2'],
+        p         = cell_style[['p']](tst['P'], pformat))
   }
 
-  tbl <- row_header(table, derive_label(row))
   tbl <- if(test) {
-    col_header(tbl, "N", categories, "Test Statistic")  %>% col_header("", subN, "")
+    col_header(table, "N", categories, "Test Statistic")  %>% col_header("", subN, "")
   } else {
-    col_header(tbl, "N", categories)  %>% col_header("", subN)
+    col_header(table, "N", categories)  %>% col_header("", subN)
   }
 
-  tbl <- add_col(tbl, cell_n(sum(!is.na(datar)),name=NULL)) %>%
-  table_builder_apply(categories, function(tbl, category) {
+  tbl <- row_header(tbl, derive_label(row, ...))
+
+  tbl <- add_col(tbl, cell_style[['n']](sum(!is.na(datar)), possible=length(datar), ...)) %>%
+  table_apply(categories, function(tbl, category) {
      x  <- if(category == overall_label) datar else datar[datac == category]
 
      if(sum(!is.na(x)) > 0) {
-       add_col(tbl, cell_iqr(x, format, na.rm=TRUE, subcol=category, msd=msd, quant=quant))
+       add_col(tbl, cell_style[['iqr']](x, format, na.rm=TRUE, subcol=category, msd=msd, quant=quant))
      } else {
        add_col(tbl, "")
      }
@@ -109,188 +128,104 @@ summarize_kruskal_horz <- function(table,
   tbl
 }
 
-#' Create a summarization for a categorical set of column versus a numerical row in NEJM style
-#'
+#' @section \code{summarize_kruskal_vert}:
 #' Given a row and column object from the parser apply a Kruskal test and output
-#' the results horizontally. 5 X (n + no. categories + test statistic)
+#' the results vertically (#Categories+1) X (N, Summary, Statistic)
 #'
-#' @param table The table object to modify
-#' @param row The row variable object to use (numerical)
-#' @param column The column variable to use (categorical)
-#' @param pformat numeric, character or function; A formatting directive to be applied to p-values
-#' @param msd logical; Include mean and standard deviation with quantile statistics
-#' @param quant numeric; Vector of quantiles to include. Should be an odd number since the middle value is highlighted on display.
-#' @param overall logical; Include overall summary statistics for a categorical column
-#' @param test logical; include statistical test results
-#' @param ... absorbs additional arugments. Unused at present.
-#' @return The modified table object
+#' @rdname hmisc
+#'
 #' @export
-#' @importFrom magrittr "%>%"
-#' @include hmisc-biVar.R
-#' @include compile.R
-#' @include compile-cell.R
-#' @include compile-typing.R
-#' @include helper-format.R
-#' @importFrom stats chisq.test
-#' @importFrom stats cor
-#' @importFrom stats cor.test
-#' @importFrom stats na.omit
-#' @importFrom stats wilcox.test
-summarize_nejm_horz <-    function(table,
-                                   row,
-                                   column,
-                                   pformat=NULL,
-                                   msd=FALSE,
-                                   quant=c(0.25, 0.5, 0.75),
-                                   overall=NULL,
-                                   test=TRUE,
-                                   ...)
+summarize_kruskal_vert <- function(table, row, column, cell_style, collapse_single=TRUE, pformat=NULL, msd=FALSE, test=FALSE, ...)
 {
-  pformat <- pfunc(pformat)
-
-  # Treat overall as a label if it's character
-  overall_label <- if(is.null(overall)) "" else { if(is.character(overall)) overall else "Overall" }
-  overall       <- !is.null(overall)
-
-  datar      <- row$data
-  datac      <- as.categorical(column$data)
-  categories <- if(overall) c(levels(datac), overall_label) else levels(datac)
-
-  format <- ifelse(is.na(row$format), format_guess(datar), row$format)
-
-  # Compute N values for each category
-  subN <- lapply(levels(datac), FUN=function(cat){
-    cell_n(length(datac[datac == cat & !is.na(datac)]), subcol=cat)
-  })
-
-  if(overall) subN[[length(subN)+1]] <- cell_n( sum(!is.na(column$data)), subcol="Overall")
+  datar      <- as.categorical(row$data)
+  datac      <- column$data
+  categories <- levels(datar)
+  collapse   <- length(categories) == 1
 
   # Kruskal-Wallis via F-distribution
-  stat <- if(length(categories) == 1)
+  if(inherits(test, "function"))
   {
-    cell(suppressWarnings(wilcox.test(datar)), pformat=pformat, reference="3")
-  }
-  else
-  {
-    stat  <- suppressWarnings(spearman2(datac, datar, na.action=na.retain))
-    cell_fstat(f         = render_f(stat['F'], "%.2f"),
-               df1       = stat['df1'],
-               df2       = stat['df2'],
-               p         = pformat(stat['P']),
-               reference = "1")
-  }
-
-  tbl <- table %>%
-         row_header(derive_label(row)) %>%
-         row_header("   Mean") %>%
-         row_header("   Median") %>%
-         row_header("   Minimum") %>%
-         row_header("   Maximum")
-
-  tbl <- if(test) {
-    col_header(tbl, "N", categories, "Test Statistic")  %>% col_header("", subN, "")
+    stat <- test(row, column, cell_style, ...)
+    test <- TRUE
   } else {
-    col_header(tbl, "N", categories)  %>% col_header("", subN)
+    stat  <- suppressWarnings(spearman2(datar, datac, na.action=na.retain))
+    stat  <- if(collapse) "" else
+               cell_style[['fstat']](
+                      f   = render_f(stat['F'], "%.2f"),
+                      df1 = stat['df1'],
+                      df2 = stat['df2'],
+                      p   = cell_style[['p']](stat['P'], pformat))
   }
-  tbl <- add_col(tbl, cell_n(sum(!is.na(datar)),name=NULL))
-  tbl <- table_builder_apply(tbl, categories, function(tbl, category) {
-     x  <- if(category == overall_label) datar else datar[datac == category]
-     tbl <- add_row(tbl, cell(""))
-     sapply(c(mean, median, min, max), function (f) {
-       tbl <<- add_row(tbl, cell(render_f(f(x, na.rm=TRUE), row$format), subcol=category))
-     })
-     tbl <- new_col(tbl)
-     tbl
-  })
-  tbl <- home(tbl) %>% cursor_right(2)
+
+  N <- cell_style[['n']](sum(!is.na(datac)), hdr=TRUE, possible=length(datac), ...)
+
+  tbl <- if(test)
+  {
+    col_header(table, "N", derive_label(column, ...), "Test Statistic") %>% col_header("", N, "")
+  } else {
+    col_header(table, "N", derive_label(column, ...)) %>% col_header("", N)
+  }
+
+  tbl <- if(collapse)
+  {
+    row_header(tbl, derive_label(row, ...)) %>%
+    add_col(cell_style[['n']](sum(!is.na(datac)), subcol=categories[1], possible=length(datac), ...))           %>%
+    add_col(cell_style[['iqr']](datac, column$format, na.rm=TRUE, msd=msd, subrow=categories[1]))
+  } else if(collapse_single && length(categories) == 2)
+  {
+    category <- categories[2]
+    x <- datac[datar == category]
+
+    row_header(tbl, paste(derive_label(row, ...), ":", category) )    %>%
+    add_col(cell_style[['n']](sum(!is.na(datac)), possible=length(datac), subcol=category, ...))           %>%
+    add_col(cell_style[['iqr']](x, column$format, na.rm=TRUE, subrow=category, msd=msd))
+  } else
+  {
+
+    row_header(tbl, derive_label(row, ...))                                %>%
+    add_col("", "")                                                   %>%
+    new_line()                                                        %>%
+    table_apply(categories, FUN=function(tbl, category) {
+      x <- datac[datar == category]
+      tbl                                                  %>%
+      row_header(paste0("  ", category))                   %>%
+      add_col(cell_style[['n']](length(x), possible=length(datac), subcol=category, ...))            %>%
+      add_col(cell_style[['iqr']](x, column$format, na.rm=TRUE, subrow=category, msd=msd)) %>%
+      new_line()
+    })                                                                %>%
+    cursor_pos(1, 3)
+  }
+
   if(test) tbl <- add_col(tbl, stat)
 
   tbl
 }
 
 
-#' Create a summarization for a categorical row versus a numerical column
-#'
-#' Given a row and column object from the parser apply a Kruskal test and output
-#' the results vertically (#Categories+1) X (N, Summary, Statistic)
-#'
-#' @param table The table object to modify
-#' @param row The row variable object to use (categorical)
-#' @param column The column variable to use (numerical)
-#' @param pformat numeric, character or function; A formatting directive to be applied to p-values
-#' @param test logical; include statistical test results
-#' @param ... absorbs additional arugments. Unused at present.
-#' @return The modified table object
-#' @export
-summarize_kruskal_vert <- function(table, row, column, pformat=NULL, test=TRUE, ...)
-{
-  pformat <- pfunc(pformat)
-
-  datar      <- as.categorical(row$data)
-  datac      <- column$data
-  categories <- levels(datar)
-
-  # Kruskal-Wallis via F-distribution
-  stat  <- suppressWarnings(spearman2(datar, datac, na.action=na.retain))
-  fstat <- cell_fstat(f   = render_f(stat['F'], "%.2f"),
-                      df1 = stat['df1'],
-                      df2 = stat['df2'],
-                      p   = pformat(stat['P']),
-                      reference = "1")
-
-  tbl <- if(test) col_header(table, "N", derive_label(column), "Test Statistic") else
-                  col_header(table, "N", derive_label(column))
-
-  tbl <- row_header(tbl, derive_label(row))                          %>%
-# FIXME Need to handle single case consistent with chisq
-  new_line()                                                        %>%
-  table_builder_apply(categories, FUN=function(tbl, category) {
-    x <- datac[datar == category]
-    tbl                                                  %>%
-    row_header(paste0("  ", category))                   %>%
-    add_col(cell(length(x), subcol=category))            %>%
-    add_col(cell_iqr(x, column$format, na.rm=TRUE, subrow=category)) %>%
-    new_line()
-  })                                                                %>%
-  cursor_pos(1, 3)
-
-  if(test) tbl <- add_col(tbl, fstat)
-
-  tbl
-}
-
-#' Create a summarization for a categorical row versus a categorical column
-#'
+#' @section \code{summarize_chisq}:
 #' Given a row and column object from the parser apply a chi^2 test and output
 #' the results
 #'
-#' @param table The table object to modify
-#' @param row The row variable object to use (categorical)
-#' @param column The column variable to use (categorical)
-#' @param pformat numeric, character or function; A formatting directive to be applied to p-values
-#' @param collapse_single logical; default TRUE. Categorical variables with a two values collapse to single row.
-#' @param overall logical; Include the overall summary column
-#' @param test logical; include statistical test results
-#' @param row_percents logical; use denominator across rows instead of columns.
-#' @param ... absorbs extra parameters. Currently unused.
-#' @return The modified table object
+#' @rdname hmisc
 #' @export
 summarize_chisq <- function(table,
                             row,
                             column,
+                            cell_style,
                             pformat=NULL,
                             collapse_single=TRUE,
                             overall=NULL,
-                            test=TRUE,
+                            test=FALSE,
                             row_percents=FALSE,
+                            useNA="no",
                             ...)
 {
-  pformat <- pfunc(pformat)
+  grid <- table(as.categorical(row$data), as.categorical(column$data), useNA=useNA)
+  if(is.na(colnames(grid)[ncol(grid)])) grid <- grid[,1:(ncol(grid)-1)]
 
-  grid          <- table(as.categorical(row$data), as.categorical(column$data), useNA="no")
   validcol      <- which(!apply(grid,2,FUN = function(x){all(x == 0)}))
   validrow      <- which(!apply(grid,1,FUN = function(x){all(x == 0)}))
-  stat          <- if(length(grid[validrow,validcol]) < 2) NA else suppressWarnings(chisq.test(grid[validrow,validcol], correct=FALSE))
+  stat          <- if(length(validrow) < 2 || length(validcol) < 2) NA else suppressWarnings(chisq.test(grid[validrow,validcol], correct=FALSE))
   ncol          <- dim(grid)[2]
   nrow          <- dim(grid)[1]
 
@@ -304,20 +239,20 @@ summarize_chisq <- function(table,
   # Compute overall N values for each category
   # length(datac[datac == cat & !is.na(datac)])
   subN <- lapply(colnames(grid), FUN=function(cat)
-    cell_n( sum(column$data == cat, na.rm=TRUE), subcol=cat)
+    cell_style[['n']](sum(column$data == cat, na.rm=TRUE), subcol=cat, possible=length(column$data), hdr=TRUE, ...)
   )
 
-  if(!is.null(overall))
+  if(!is.null(overall) && (!is.logical(overall) || overall))
   {
     denominators <- cbind(denominators, rep(sum(grid), nrow))
     grid         <- cbind(grid,         rowSums(grid))
     colnames(grid)[ncol+1] <- if(is.character(overall)) overall else "Overall"
-    subN[[ncol+1]] <- cell_n( sum(!is.na(column$data)), subcol="Overall")
+    subN[[ncol+1]] <- cell_style[['n']]( sum(!is.na(column$data)), possible=length(column$data), subcol="Overall", hdr=TRUE, ...)
     ncol         <- ncol + 1
   }
 
   # Collapse to a single line when requested for 2 binomial factors
-  if(collapse_single && dim(grid)[1]==2)
+  if(collapse_single && dim(grid)[1]<=2)
   {
     # Why is this so difficult?
 
@@ -328,17 +263,38 @@ summarize_chisq <- function(table,
           if(!is.null(l2)) {name<-l2}
     })
 
+    pos <- dim(grid)[1]
+
     # Select part of grid table, then do all the munging to get it back in form
-    x <- matrix(grid[2,], nrow=1)
+    x <- matrix(grid[pos,], nrow=1)
     colnames(x) <- colnames(grid)
-    rownames(x) <- paste(name,":", rownames(grid)[2])
+    rownames(x) <- paste(name,":", rownames(grid)[pos])
     grid <- x
-    denominators <- matrix(denominators[2,], nrow=1)
+    denominators <- matrix(denominators[pos,], nrow=1)
     nrow <- 1
   }
   else # Give a good indent otherwise
   {
+    if(is.na(rownames(grid)[nrow(grid)]))
+    {
+      rownames(grid)[nrow(grid)] <- "Missing (%)"
+    }
     rownames(grid)   <- lapply(rownames(grid), FUN=function(x) paste("  ", x))
+  }
+
+  # compute the stats if needed
+  if(inherits(test, "function"))
+  {
+    test_result <- test(row, column, cell_style, ...)
+    test <- TRUE
+  } else if(test)
+  {
+    test_result <- if(any(is.na(stat))) cell("NA") else
+      cell_style[['chi2']](
+        render_f(stat$statistic, 2),
+        stat$parameter,
+        cell_style[['p']](stat$p.value, pformat)
+      )
   }
 
   # Column Headers
@@ -351,16 +307,17 @@ summarize_chisq <- function(table,
   }
 
   # Row Headers
-  if(nrow > 1) table <- row_header(table, derive_label(row)) # Deal with single
+  if(nrow > 1) table <- row_header(table, derive_label(row, ...)) # Deal with single
   for(nm in rownames(grid)) table <- row_header(table, nm)
 
   # The N value
-  table <- add_col(table, sum(!is.na(row$data)))
+  table <- add_col(table, cell_style[['n']](sum(!is.na(row$data)), possible=length(row$data), ...))
 
   # Now loop the grid into the table as a fraction
   for(j in 1:ncol)
   {
     if(nrow > 1) table <- add_row(table, "")
+    format <- if(is.na(row$format) || is.null(row$format)) format_guess(as.vector(grid/denominators)) else row$format
     for(i in 1:nrow)
     {
       table <-
@@ -368,17 +325,17 @@ summarize_chisq <- function(table,
           add_row(table, "")
         else
           add_row(table,
-                  cell_fraction(grid[i,j], denominators[i,j],
-                                format=row$format,
+                  cell_style[['fraction']](
+                                grid[i,j], denominators[i,j],
+                                format=format,
                                 subcol=colnames(grid)[i], subrow=rownames(grid)[j]))
     }
     table <- new_col(table)
   }
 
-  # Finally add the stats
   if(test)
   {
-    table <- add_row(table, cell(stat, reference="2", pformat=pformat))
+    table <- add_row(table, test_result)
 
     # Fill in blank cells in stats column
     if(nrow > 1) table <- add_row(table, rep("", nrow))
@@ -387,49 +344,49 @@ summarize_chisq <- function(table,
   table
 }
 
-#' Create a summarization for a numerical row versus a numerical column
-#'
+#' @section \code{summarize_spearman}:
 #' Given a row and column object from the parser apply a Spearman test and output
 #' the results in a 1X3 format.
 #'
-#' @param table The table object to modify
-#' @param row The row variable object to use (numerical)
-#' @param column The column variable to use (numerical)
-#' @param pformat numeric, character or function; A formatting directive to be applied to p-values
-#' @param test logical; include statistical test results
-#' @param ... absorbs additional arguments. Unused at present.
-#' @return The modified table object
+#' @rdname hmisc
 #' @export
-summarize_spearman <- function(table, row, column, pformat=NULL, test=TRUE, ...)
+summarize_spearman <- function(table, row, column, cell_style, pformat=NULL, test=FALSE, ...)
 {
-  pformat <- pfunc(pformat)
+  datar   <- row$data
+  datac   <- column$data
 
-  datar <- row$data
-  datac <- column$data
+  tbl     <- row_header(table, derive_label(row, ...))
 
-  stat  <- suppressWarnings(cor.test(datar, datac, alternate="two.sided", method="spearman", na.action=na.omit, exact=FALSE))
+  N <- cell_style[['n']](sum(!is.na(datac)), possible=length(datac), hdr=TRUE, ...)
 
-  tbl <- row_header(table, derive_label(row))
-
-  tbl <- if(test) {
-    tbl <- col_header(tbl, "N", derive_label(column), "Test Statistic")
-    tbl <- col_header(tbl, "", "", "")
-  } else {
-    tbl <- col_header(tbl, "N", derive_label(column))
-    tbl <- col_header(tbl, "", "")
+  estimate <- unname(suppressWarnings(cor.test(datar, datac, alternate="two.sided", method="spearman", na.action=na.omit, exact=FALSE))$estimate)
+  if(inherits(test, "function"))
+  {
+    stat <- test(row, column, cell_style, ...)
+    test <- TRUE
+  } else if(test)
+  {
+    stat <- suppressWarnings(cor.test(datar, datac, alternate="two.sided", method="spearman", na.action=na.omit, exact=FALSE))
+    stat <- cell_style[['spearman']](
+      stat$statistic,
+      render_f(estimate, row$format),
+      cell_style[['p']](stat$p.value, pformat)
+    )
   }
 
-  tbl <- add_col(tbl, sum(!is.na(datar) & !is.na(datac)))
-  tbl <- add_col(tbl, render_f(stat$estimate, row$format))
+  tbl <- if(test)
+  {
+    col_header(tbl, "N", derive_label(column, ...), "Test Statistic") %>% col_header("", N, "")
+  } else {
+    col_header(tbl, "N", derive_label(column, ...)) %>% col_header("", N)
+  }
 
-  if(test) tbl <- add_col(tbl, cell(stat, pformat=pformat))
+  tbl <- add_col(tbl, cell_style[['n']](sum(!is.na(datar) & !is.na(datac)),possible=length(datar), ...))
+  tbl <- add_col(tbl, paste0("\u03c1=", render_f(estimate, row$format)))
+
+  if(test) tbl <- add_col(tbl, stat)
 
   tbl
-}
-
-apply_factors <- function(row, column)
-{
-  stop("Not Implemented")
 }
 
 #' Determine data type of a vector loosely consistent with Hmisc.
@@ -439,6 +396,8 @@ apply_factors <- function(row, column)
 #'
 #' @return One of the following strings: Binomial, Categorical, or Numerical.
 #' @export
+#'
+#' @seealso \code{\link{hmisc}}
 #'
 #' @examples
 #'
@@ -455,17 +414,26 @@ hmisc_data_type <- function(x, category_threshold=NA)
   stop(paste("Unsupported class/type - ",class(x), typeof(x)))
 }
 
-#' Style Bundle for Hmisc defaults.
+
+#' @section \code{hmisc}:
+#' \preformatted{hmisc <- list(
+#'  Type        = hmisc_data_type,
+#'  Numerical   = list(
+#'    Numerical   = summarize_spearman,
+#'    Categorical = summarize_kruskal_horz
+#'  ),
+#'  Categorical = list(
+#'    Numerical   = summarize_kruskal_vert,
+#'    Categorical = summarize_chisq
+#'  ),
+#'  Cell        = hmisc_cell,
+#'  Footnote    = "N is the number of non-missing value. ^1^Kruskal-Wallis. ^2^Pearson. ^3^Wilcoxon."
+#' )}
 #'
-#' List of lists, should contain a "Type" entry with a function to determine type of vector passed in.
-#' Next entries are keyed off returned types from function, and represent the type of a row.
-#' The returned list should contain the same list of types, and represents the type of a column. Thus it now returns
-#' a function to process the intersection of those two types.
-#'
-#' @keywords data
 #' @export
-#'
-hmisc_style <- list(
+#' @rdname hmisc
+#' @keywords data
+hmisc <- list(
   Type        = hmisc_data_type,
   Numerical   = list(
                   Numerical   = summarize_spearman,
@@ -475,32 +443,10 @@ hmisc_style <- list(
                   Numerical   = summarize_kruskal_vert,
                   Categorical = summarize_chisq
             ),
+  Cell        = hmisc_cell,
   Footnote    = "N is the number of non-missing value. ^1^Kruskal-Wallis. ^2^Pearson. ^3^Wilcoxon."
 )
 
-
-#' Style Bundle for Closer to NEJM style
-#'
-#' List of lists, should contain a "Type" entry with a function to determine type of vector passed in.
-#' Next entries are keyed off returned types from function, and represent the type of a row.
-#' The returned list should contain the same list of types, and represents the type of a column. Thus it now returns
-#' a function to process the intersection of those two types.
-#'
-#' @keywords data
-#' @export
-#'
-nejm_style <- list(
-  Type        = hmisc_data_type,
-  Numerical   = list(
-                  Numerical   = summarize_spearman,
-                  Categorical = summarize_nejm_horz
-            ),
-  Categorical = list(
-                  Numerical   = function(...){stop("Cat X Numerical not implemented in this style")},
-                  Categorical = summarize_chisq
-            ),
-  Footnote    = "N is the number of non-missing value. ^1^Kruskal-Wallis. ^2^Pearson. ^3^Wilcoxon."
-)
 
 #' Mayo Clinic Primary Biliary Cirrhosis Data
 #'

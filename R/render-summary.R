@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,33 +15,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 textsub_table <-list(
-  c("\u00A0",                                "  "),       # Special spaces
-  c("(^|[^\\\\])~((\\\\.|[^~\\\\])*)~",      "\\1_\\2"),  # Subscript
-  c("(^|[^\\\\])\\^((\\\\.|[^~\\\\])*)\\^",  "\\1^\\2"),  # Superscript
-  c("\\\\(.)",                               "\\1")       # convert escaped characters
+  c("\u00A0",                                  "  "),        # Special spaces
+  c("\\*\\*",                                 "\\*"),        # Double asterisks converted to single
+  c("(^|[^\\\\])~([^~\\\\])~",                "\\1_\\2"),    # Single character subscript
+  c("(^|[^\\\\])~((\\\\.|[^~\\\\])+)~",       "\\1_{\\2}"),  # Subscript
+  c("(^|[^\\\\])\\^((\\\\.|[^\\^\\\\])+)\\^", "\\1^\\2 "),   # Superscript
+  c("(^|[^\\\\])\\^((\\\\.|[^\\^\\\\])+) _",  "\\1^\\2_"),   # Superscript followed by subscript correction
+  c("(^|[^\\\\])\\\\frac{([^}]*)}{([^}]*)}",  "\\1 \\2/\\3"),# Make fractions
+  c("\\\\(.)",                                "\\1")         # convert escaped characters
 )
 
-#' @importFrom stringi stri_trans_nfc
-#' @importFrom stringi stri_trans_nfd
-#' @importFrom utils capture.output
-textify <- function(x)
+#' @include iify.R
+textify <- Vectorize(function(x)
 {
-  y <- as.character(x)          # Make sure a character string was passed
-  if(nchar(y) == 0) return("")  # Abort early for zero characters
+  if(is.na(x)) return("")
 
-  ## Kludge for converting from "byte" to the current encoding
-  ## in a way which preserves the hex notation.
-  encBytes <- Encoding(y) == "bytes"
-  if (any(encBytes)) y[encBytes] <- capture.output(cat(y[encBytes], sep = "\n"))
+  x <- iify(x, textsub_table)
 
   ## Convert strings to UTF-8 encoding, NFD (decomposed) form, for
   ## processing of accented characters. Doing this early to
   ## circumvent pecularities in gsub() (and nchar()) when working in
   ## the C locale.
-  y <- stri_trans_nfd(y)
+  y <- stri_trans_nfd(x)
 
   # Convert strikethrough
-  y <- "~~one~~ other \\~~ ~~two~~"
+  #y <- "~~one~~ other \\~~ ~~two~~"
   pieces <- strsplit(y, "(?<!\\\\)~~", perl=TRUE)[[1]] # Strikethrough
   if(length(pieces) > 1)
   {
@@ -50,38 +48,17 @@ textify <- function(x)
       gsub("(\\\\.|.)", "\\1\u0336", x, perl=TRUE)
     })
   }
+
   y <- paste0(pieces, collapse="")
-
-  ## Run all conversions as appropriate not inside "$"
-  pieces  <- strsplit(y, "(?<!\\\\)\\$", perl=TRUE)[[1]]
-  if(length(pieces) > 0)
-  {
-    subs <- seq(1, length(pieces), by=2)
-    pieces[subs] <- sapply(pieces[subs], function(x) {
-      Reduce(function(u, v) gsub(v[1], v[2], u, perl=TRUE), textsub_table, x)
-    })
-  }
-
-  for(i in 1:length(pieces))
-  {
-    if((i %% 2) != 0)
-    {
-      for (subst in textsub_table) pieces[i] <- gsub(subst[1], subst[2], pieces[i], perl = TRUE)
-    }
-  }
-  y <- paste0(pieces, collapse="")
-
-
 
   ## Convert result to UTF-8 NFC encoding, although most non-ASCII
   ## content has probably been converted to LaTeX commands.
   stri_trans_nfc(y)
-}
+})
 
 
-
-#######
 #' The default method for rendering tangram objects
+#'
 #' A tangram is a summary, so it returns itself. Otherwise convert to a text representation.
 #'
 #' @param object object; the item to render
@@ -89,10 +66,9 @@ textify <- function(x)
 #' @return the text summary
 #' @examples
 #' summary(cell_label("123"))
-#' summary(cell_iqr(rnorm(20)))
-#' summary(cell_estimate(2.1,0.8, 3.3))
-#' summary(cell_fraction(45, 137))
-#' summary(table_builder()   %>%
+#' summary(hmisc_iqr(rnorm(20)))
+#' summary(hmisc_fraction(45, 137))
+#' summary(tangram(1,1)   %>%
 #'         row_header("row") %>%
 #'         col_header(1,2,3) %>%
 #'         add_col("A","B","C"))
@@ -101,103 +77,41 @@ textify <- function(x)
 #' @include compile.R
 #' @rdname summary
 #' @export
-summary.tangram <- function(object, ...) object
+summary.tangram <- function(object, ...)
+{
+  x <- internal_summary(object, ...)
+  class(x) <- "summary.tangram"
+  x
+}
 
-#' @rdname summary
-#' @export
-summary.table_builder <- function(object,...) summary(table_flatten(object$table))
+# #' @rdname summary
+# #' @export
+# summary.logical <- function(object, ...)
+# {
+#   if(is.na(object)) return("")
+#
+#   return(as.character(object))
+# }
 
 #' @rdname summary
 #' @export
 summary.cell <- function(object, ...)
 {
+  if(is.na(object)) return("")
+
   sep  <- if(is.null(attr(object, "sep"))) ", " else attr(object, "sep")
 
-  if(is.null(names(object)))
+  x <- if(is.null(names(object)))
   {
     paste(object, collapse=sep)
   } else {
-    name <- vapply(names(object), function(n) if(nchar(n)>0) paste0(n,"=") else "", "character")
+    name <- vapply(names(object), function(n) if(nchar(n)>0) paste0(textify(n),"=") else "", "character")
     paste(paste0(name, as.character(object)), collapse=sep)
   }
+  class(x) <- "summary.tangram"
+  x
 }
 
-#' @rdname summary
-#' @export
-summary.cell_label <- function(object, ...)
-{
-  units <- attr(object, "units")
-  if(is.null(units)) object else paste0(object, " (", units, ")")
-}
-
-#' @rdname summary
-#' @export
-summary.cell_spearman <- function(object, ...)
-{
-  paste0("S=",object[1],", ","P=",object[3])
-}
-
-#' @rdname summary
-#' @export
-summary.cell_iqr <- function(object, ...)
-{
-  mid <- floor(length(object)/2) + 1
-  y <- as.character(object)
-  x <- y[mid] <- paste0("*", y[mid], "*")
-
-  result <- paste0(y, collapse=' ')
-
-  z <- attr(object, "msd")
-  if(is.null(z)) result else
-  {
-    paste0(result, ' ', z[1], '\u00b1', z[2])
-  }
-}
-
-#' @rdname summary
-#' @export
-summary.cell_range <- function(object, ...)
-{
-  sep <- if(is.null(attr(object, "sep"))) ", " else attr(object, "sep")
-  paste0("(", object[1], sep, object[2], ")")
-}
-
-#' @rdname summary
-#' @export
-summary.cell_estimate <- function(object,...)
-{
-  paste0(c(summary(object[[1]]), summary(object[[2]])), collapse=' ')
-}
-
-#' @rdname summary
-#' @export
-summary.cell_fraction <- function(object,...)
-{
-  den <- as.character(object['denominator'])
-  num <- sprintf(paste("%",nchar(den),"s",sep=''), object['numerator'])
-  paste0(object['ratio'], "  ", num, "/", den)
-}
-
-#' @rdname summary
-#' @export
-summary.cell_fstat <- function(object, ...)
-{
-  paste0("F_{", object[2], ",", object[3], "}=", object[1], ", P=", object[4])
-}
-
-#' @rdname summary
-#' @export
-summary.cell_chi2 <- function(object, ...)
-{
-  paste0("X^2_", object[2], "=", object[1], ", P=", object[3])
-}
-
-#' @rdname summary
-#' @export
-summary.cell_studentt <- function(object, ...)
-{
-  paste0("t_", object[2], "=", object[1], ", P=", object[3])
-}
 
 #######
 #' Print methods for tangram objects
@@ -207,10 +121,9 @@ summary.cell_studentt <- function(object, ...)
 #' @return the text summary
 #' @examples
 #' print(cell_label("123"))
-#' print(cell_iqr(rnorm(20)))
-#' print(cell_estimate(2.1,0.8, 3.3))
-#' print(cell_fraction(45, 137))
-#' print(table_builder()   %>%
+#' print(hmisc_iqr(rnorm(20)))
+#' print(hmisc_fraction(45, 137))
+#' print(tangram(1,1)   %>%
 #'         row_header("row") %>%
 #'         col_header(1,2,3) %>%
 #'         add_col("A","B","C"))
@@ -224,7 +137,53 @@ print.cell <- function(x, ...)
 
 #' @rdname print
 #' @export
-print.tangram <- function(x,...)
+print.tangram <- function(x, ...)
+{
+  renderer <- render_route_tangram()
+  result   <- renderer(table_flatten(x), ...)
+
+  if(isTRUE(getOption('knitr.in.progress')))
+  {
+    result
+  } else
+  {
+    cat(result)
+    invisible(result)
+  }
+}
+
+#' @rdname print
+#' @export
+print.summary.tangram <- function(x, ...)
+{
+  cat(x)
+  invisible(x)
+}
+
+#' Router for rendering method
+#'
+#' This functions detects if knitr is loaded, and does it's best to determine the output
+#' format from knitr and returns the appropriate rendering function.
+#'
+#' @importFrom knitr is_html_output
+#' @importFrom knitr is_latex_output
+#' @importFrom knitr opts_knit
+#' @return A rendering function to use
+render_route_tangram <- function()
+{
+  if(! "knitr" %in% .packages()) return(internal_summary)
+
+  if(knitr::is_html_output()) return(html5.tangram)
+
+  if(knitr::is_latex_output()) return(latex.tangram)
+
+  if(is.null(knitr::opts_knit$get("out.format"))) return(internal_summary)
+
+  rmd.tangram
+}
+
+#' @importFrom stringr str_pad
+internal_summary <- function(x, ...)
 {
   nrows <- rows(x)
   ncols <- cols(x)
@@ -235,22 +194,45 @@ print.tangram <- function(x,...)
   sapply(1:nrows, FUN=function(row) {
     sapply(1:ncols, FUN=function(col) {
       if(last_header_row == 0 && !inherits(x[[row]][[col]], "cell_header")) last_header_row <<- row - 1
-      text[row,col] <<- summary(x[[row]][[col]])
+      text[row,col] <<- textify(summary(x[[row]][[col]]))
     })
   })
 
-  maxwidths <- apply(text, 2, FUN=function(x) max(nchar(x), na.rm=TRUE))
+  maxwidths <- rep(0, ncols)
+  for(i in 1:nrows)
+  {
+    for(j in 1:ncols)
+    {
+      colspan <- if(!is.null(attr(x[[i]][[j]], "colspan"))) attr(x[[i]][[j]], "colspan") else 1
+      width   <- ceiling(nchar(text[i,j]) / colspan)
+      for(k in 1:colspan)
+        if(width > maxwidths[j+k-1]) maxwidths[j+k-1] <- width
+
+      # Deal with rowspans (i.e. get rid of NAs for proper column expansion)
+      rowspan <- if(!is.null(attr(x[[i]][[j]], "rowspan"))) attr(x[[i]][[j]], "rowspan") else 1
+      if(rowspan > 1)
+      {
+        for(k in 2:rowspan)
+        {
+          x[[i]][[j+k-1]] <- ""
+        }
+      }
+    }
+  }
 
   sapply(1:nrows, FUN=function(row) {
     sapply(1:ncols, FUN=function(col) {
-      if(col == 1)
+      text[row, col] <- if(!is.na(x[[row]][[col]]))
       {
-        text[row,col] <<- str_pad(text[row,col], maxwidths[col], "right")
-      }
-      else
-      {
-        text[row,col] <<- str_pad(text[row,col], maxwidths[col], "both")
-      }
+        just    <- if(col == 1) "right" else "both"
+        width   <- maxwidths[col]
+        if(!is.null(attr(x[[row]][[col]], "colspan")))
+        {
+          widths <- maxwidths[col:(col+attr(x[[row]][[col]], "colspan")-1)]
+          width  <- sum(widths)+2*(length(widths)-1)
+        }
+        text[row, col] <<- str_pad(text[row,col], width, just)
+      } else ""
     })
   })
 
@@ -270,19 +252,24 @@ print.tangram <- function(x,...)
   }
   result <- paste0(result, paste0(rep("=",nchar(pasty[1])),collapse=''), '\n')
 
-  cat(result)
-  invisible(result)
+  if(!is.null(attr(x, "caption")))
+  {
+    result <- paste0(textify(attr(x, "caption")), '\n', result)
+  }
+
+
+  if(!is.null(attr(x, "footnote")))
+  {
+    result <- paste0(result, textify(paste0(attr(x, "footnote"), collapse="\n")), collapse='\n' )
+  }
+
+  result
 }
 
-#' Print a text summary of a given table_builder
-#'
-#' @param x The table_builder to render to text
-#' @param ... additional arguments, unused at present
-#' @return A text string rendering of the given table
-#' @export
-print.table_builder <- function(x,...) print(summary(x$table,...))
 
 ### Notes on making text rendering of histograms
 # map <- c(" ", "\u2581", "\u2582", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2587")
 # h <- hist(rexp(200))
 # paste0(map[floor(h$density*8/max(h$density))+1], collapse='')
+
+

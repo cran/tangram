@@ -1,6 +1,9 @@
+context("Parser")
+
 test_that("Addition and multiplication is parseable.",
 {
-  ast <- Parser$new()$run("col1 + col2 + col3 ~ drug*age+spiders")
+
+  ast <- Parser$new()$run("`col1 a` + col2 + col3 ~ drug*age+spiders")
 
   ###############################################################
   ##
@@ -27,7 +30,7 @@ test_that("Addition and multiplication is parseable.",
   expect_true(inherits(ast$left, "ASTPlus"))
 
   expect_true(inherits(ast$left$left, "ASTVariable"))
-  expect_equal(ast$left$left$value,  "col1")
+  expect_equal(ast$left$left$value,  "col1 a")
 
   expect_true(inherits(ast$left$right, "ASTPlus"))
 
@@ -121,5 +124,15 @@ test_that("reduction via data works",
 
   expect_equal(reducto$left$data,  df[,"y"])
   expect_equal(reducto$right$data, df[,"x"])
+})
+
+test_that("reduction via data works with spaces in variable name",
+{
+  df <- data.frame(x=rnorm(20), y=1:20)
+  names(df) <- c("a b c", "d e f")
+  reducto <- Parser$new()$run("`d e f` ~ `a b c`")$reduce(df)
+
+  expect_equal(reducto$left$data,  df[,"d e f"])
+  expect_equal(reducto$right$data, df[,"a b c"])
 })
 

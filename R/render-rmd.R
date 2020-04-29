@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #' @param object The cell_fstat for indexing
 #' @param key A filename to write key values into. Can be false if no key file is desired.
 #' @param append logical; Should the key file be appended too, or overwritten
+#' @param pad numeric; Minimum width of columns can be a single or vector of numerics.
 #' @param ... additional arguments to renderer. Unused
 #' @return A string representation of the table
 #' @rdname rmd
@@ -33,6 +34,14 @@ rmd <- function(object, key=FALSE, ...)
 {
   UseMethod("rmd", object)
 }
+
+#' @include iify.R
+rmdify <- function(x) iify(x, list(
+  #c("&nbsp;",     "  "),
+  c("\\\\frac\\{\\s*([^\\}]*)}\\{\\s*([^\\}]*)\\}", "\\1/\\2"),
+  c("  ", "&nbsp;&nbsp;"),
+  c("\u03A7", "X")
+))
 
 #' @rdname rmd
 #' @export
@@ -51,82 +60,6 @@ rmd.cell <- function(object, key=FALSE, ...)
     name <- vapply(names(object), function(n) if(nchar(n)>0) paste0(n,"=") else "", "character")
     paste(paste0(name, as.character(object)), collapse=sep)
   }
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_iqr <- function(object, key=FALSE, ...)
-{
-  if(key)
-  {
-    idx <- index(object, ...)
-    paste0("((",    object[1], "))%", word_ref(idx[[1]]), "%",
-           " **((", object[2], "))%", word_ref(idx[[2]]), "%** ",
-           "((",    object[3], "))%", word_ref(idx[[3]]), "%"
-           )
-  } else
-  {
-    paste0(object[1],
-           " **", object[2], "** ",
-           object[3])
-  }
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_estimate <- function(object, key=FALSE, ...)
-{
-  paste0("(", rmd(object[1]), ", ", rmd(object[2]), ")")
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_fstat <- function(object, key=FALSE, ...)
-{
-  paste0("F~",object[2],",",object[3],"~=",object[1],", P=",object[4])
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_fraction <- function(object, key=FALSE, ...)
-{
-  den <- object["denominator"]
-  num <- object["numerator"]
-  paste0(object["ratio"], "  ", num,"/",den)
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_chi2 <- function(object, key=FALSE, ...)
-{
-  if(key)
-  {
-    idx <- index(object, ...)
-    paste0("X^2^((~", object[2], "~))%", word_ref(idx[[2]]), "%",
-           "=((", object[1], "))%",    word_ref(idx[[1]]), "%",
-           ", P=((", object[3], "))%",  word_ref(idx[[3]]), "%")
-  } else
-  {
-    paste0("X^2^~", object[2],
-           "~=", object[1],
-           ", P=", object[3])
-  }
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_studentt <- function(object, key=FALSE, ...)
-{
-  idx <- index(object, key=FALSE, ...)
-
-  paste0("T~",object[2],"~=",object[1], ", P=",object[3])
-}
-
-#' @export
-#' @rdname rmd
-rmd.cell_spearman <- function(object, key=FALSE, ...)
-{
-  paste0("S=",object[1],", P=",object[1])
 }
 
 #' @export
@@ -150,8 +83,10 @@ rmd.cell_n <- function(object, key=FALSE, ...)
 #'
 #' @importFrom stringr str_pad
 #' @importFrom utils write.table
-rmd.tangram <- function(object, key=NULL, append=FALSE, ...)
+rmd.tangram <- function(object, key=NULL, append=FALSE, pad=10, ...)
 {
+  if(!is.null(attr(object, "caption"))) cat('\n', attr(object, "caption"), '\n',sep='')
+
   nrows <- rows(object)
   ncols <- cols(object)
 
@@ -161,38 +96,47 @@ rmd.tangram <- function(object, key=NULL, append=FALSE, ...)
   sapply(1:nrows, FUN=function(row) {
     sapply(1:ncols, FUN=function(col) {
       if(last_header_row == 0 && !inherits(object[[row]][[col]], "cell_header")) last_header_row <<- row - 1
-      text[row,col] <<- rmd(object[[row]][[col]], key=!is.null(key), ...)
+      if(!is.null(attr(object[[row]][[col]], "colspan"))) warning("colspan not supported for Rmd tangram rendering")
+      if(!is.null(attr(object[[row]][[col]], "rowspan"))) warning("rowspan not supported for Rmd tangram rendering")
+
+      text[row,col] <<- rmd(rmdify(object[[row]][[col]]), key=!is.null(key), ...)
     })
   })
 
-  # Pad strings
+  # Pad strings in first row
   sapply(1:ncols, FUN=function(col) {
+    ipad <- if(length(pad) == 1) pad else max(pad[col], 5)
     if(is.na(text[1,col]))
     {
-      text[1,col] <<- "          "
-    } else if(nchar(text[1,col]) < 10)
+      text[1,col] <<- paste0(rep(" ", ipad),      collapse='')
+    } else if(nchar(text[1,col]) < ipad)
     {
-      text[1,col] <<- str_pad(text[1,col], width=10, side="both");
+      text[1,col] <<- str_pad(text[1,col], width=ipad, side="both")
     }
   })
 
-  cat('\n') # An RMarkdown table must be preceeded by a newline or bad things happen
+  results <- '\n' # An RMarkdown table must be preceeded by a newline or bad things happen
 
   pasty <- apply(text, 1, function(x) paste(c("|", paste(x, collapse="|"), "|"), collapse=""))
 
-  cat(pasty[1], '\n')
-  cat(gsub("-\\|", ":|", gsub("[^\\|]", "-", pasty[1])), '\n')
+  results <- paste0(results, pasty[1], '\n')
+  results <- paste0(results, sub(":\\|", "-|", gsub("\\|-", "|:", gsub("-\\|", ":|", gsub("[^\\|]", "-", pasty[1])))), '\n')
 
-  for(row in pasty[2:nrows]) cat(row, '\n')
+  for(row in pasty[2:nrows]) results <- paste0(results, row, '\n')
 
   if(!is.null(key)) write.table(index(object, ...), key, col.names=FALSE, row.names=FALSE, append=append, sep=",", quote=FALSE)
+
+  if(!is.null(attr(object, "footnote")))
+  {
+    results <- paste0(results, '\n')
+    results <- paste0(results, rmdify(paste0(attr(object, "footnote"), collapse="\n")), collapse='\n' )
+  }
+
+  class(results) <- c("knit_asis", "character")
+  attr(results, "knit_cacheable") <- NA
+
+  results
 }
 
-#' @rdname rmd
-#' @export
-rmd.table_builder <- function(object, key=FALSE, ...)
-{
-  rmd(table_flatten(object$table), key=key, ...)
-}
 
 

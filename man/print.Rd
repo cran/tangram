@@ -3,11 +3,14 @@
 \name{print.cell}
 \alias{print.cell}
 \alias{print.tangram}
+\alias{print.summary.tangram}
 \title{Print methods for tangram objects}
 \usage{
 \method{print}{cell}(x, ...)
 
 \method{print}{tangram}(x, ...)
+
+\method{print}{summary.tangram}(x, ...)
 }
 \arguments{
 \item{x}{object; the item to render}
@@ -22,10 +25,9 @@ Print methods for tangram objects
 }
 \examples{
 print(cell_label("123"))
-print(cell_iqr(rnorm(20)))
-print(cell_estimate(2.1,0.8, 3.3))
-print(cell_fraction(45, 137))
-print(table_builder()   \%>\%
+print(hmisc_iqr(rnorm(20)))
+print(hmisc_fraction(45, 137))
+print(tangram(1,1)   \%>\%
         row_header("row") \%>\%
         col_header(1,2,3) \%>\%
         add_col("A","B","C"))

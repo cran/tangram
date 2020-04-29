@@ -1,16 +1,16 @@
 # tangram a general purpose table toolkit for R
 # Copyright (C) 2017 Shawn Garbett
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -33,7 +33,8 @@
 render_f <- function(x, format)
 {
   if(is.null(format) || is.na(format)) format <- attr(x, "format")
-  if(is.null(format) || is.na(format)) format <- 3
+  if(is.null(format) || is.na(format)) format <- 2
+  if(!is.character(format) && format < 0) format <- 0
   if(is.character(format) && substr(format, 1, 1) != "%") format <- as.numeric(format)
 
   result <- if(is.numeric(format))
@@ -45,6 +46,7 @@ render_f <- function(x, format)
     sprintf(format, x)
   }
   names(result) <- names(x)
+  result[is.na(x)] <- NA
   result
 }
 
@@ -65,9 +67,13 @@ format_guess <- function(x)
   d <- x[!is.na(x)]
   if(length(d) == 0) return(0) # Nothing, then just return 0 for rounding
   if(all(d == floor(d)))       # Is it all whole numbers, then no decimals
-    return(0)
+    0
   else
-    # Otherwise use 3 significant digits of a representative smaller side quantile
-    return(max(2-max(floor(log10(quantile(abs(d), c(0.05, 0.5))))), 0))
+  {
+    consider <- quantile(abs(d), c(0.05, 0.5))
+    if(sum(consider) == 0.0) 3 else
+      # Otherwise use 3 significant digits of a representative smaller side quantile
+      max(2-max(floor(log10(consider))), 0)
+  }
 }
 

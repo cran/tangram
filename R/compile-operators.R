@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,36 +24,46 @@
 #' NOTE: Should have data attached via reduce before calling.
 #'
 #' @param node Abstract syntax tree node.
+#' @param capture_units logical; Capture units from parenthesis ending a label
+#' @param ... Other arguments, ignored
 #'
 #' @return A string with a label for the node
 #' @include compile-cell.R
 #' @export
-derive_label <- function(node)
+derive_label <- function(node, capture_units=FALSE, ...)
 {
-  l <- node$name()
-  units <- NULL
-  try({
-        l2 <- attr(node$data, "label")
-        if(!is.null(l2))
-        {
-          # Since a label was found, see if it has units
-          u2 <- str_match(l2, "(.*)\\((.*)\\)")
-          if(is.na(u2[1,1]))
-          {
-            l <- l2
-          } else {
-            l     <- trimws(u2[1,2])
-            units <- u2[1,3]
-          }
-        }
-  })
+  l     <- node$name() # Default Label
+  units <- NULL        # Default Units
 
-  # Find units if they exist
-  try({
-    u2 <- attr(node$data, "units")
+  u2 <- NULL
+  try({u2 <- attr(node$data, "units")})
+  l2 <- NULL
+  try({l2 <- attr(node$data, "label")})
 
-    if(!is.null(u2)) {units<-u2}
-  })
+  if(!is.null(u2))
+  {
+    units <- u2
+  }
+
+  if(!is.null(l2))
+  {
+    if(capture_units && is.null(units)) # Capture and not already specified
+    {
+      # Assumes units are in parenthesis at end of label
+      u2 <- str_match(l2, "(.*)\\((.*)\\)$")
+      if(!is.na(u2[1,1]))
+      {
+        l     <- trimws(u2[1,2])
+        units <- u2[1,3]
+      } else
+      {
+        l <- l2
+      }
+    } else
+    {
+      l <- l2
+    }
+  }
 
   cell_label(l, units)
 }
@@ -98,25 +108,24 @@ args_flatten <- function(...)
   flat
 }
 
-new_header <- function(table_builder, attribute, sub, ...)
+new_header <- function(table, attribute, sub, ...)
 {
   # Grab old header if it exists
-  old_hdr   <- attr(table_builder$table, attribute)
+  old_hdr   <- attr(table, attribute)
 
   # Either a header or subheader
   hdr <- if (is.null(old_hdr) | !sub) cell_header else cell_subheader
 
   # Convert every element to an appropriate cell from request
-  new_hdr   <- lapply(args_flatten(...), FUN=function(x) {
-    hdr(x,
-        row=table_builder$row,
-        col=table_builder$col)
-  })
+  new_hdr   <- lapply(args_flatten(...), FUN=function(x) hdr(x))
+# FIXME: Is row/col reference still needed?
+#        row=table_builder$row,
+#        col=table_builder$col)
 
   # If the old header is null, then create one
-  attr(table_builder$table, attribute) <- if(is.null(old_hdr))
+  attr(table, attribute) <- if(is.null(old_hdr))
   {
-    hdr      <- tangram(1,1,embedded=FALSE)
+    hdr      <- tangram(1,1)
     hdr[[1]] <- new_hdr
     hdr
   } else { # extend existing
@@ -124,160 +133,107 @@ new_header <- function(table_builder, attribute, sub, ...)
     old_hdr
   }
 
-  # Return table_builder for pipe operator
-  table_builder
+  # Return table for possible magrittr use
+  table
 }
 
-#' Table Construction Toolset
+#' A set of magrittr operators for tangram tables
 #'
-#' These functions help build a table. A table can be embedded
-#' inside another table as a cell as well. The typical transform functions
-#' that provide bundles of functionality utilize this approach and each
-#' row column pair are rendered as a cell that is a table and later the
-#' whole table is flattened.
+#' A set of magrittr operators for tangram tables
 #'
-#' This library is designed to use a core \code{table_builder} object that
-#' is passed from function to function using the pipe \code{\%>\%} operator.
-#' First create a \code{table_builder} using the \code{table_builder()} function and
-#' use the operators to build out the table. The row and column given to
-#' the \code{table_builder} are what is used in later construction of an
-#' index key. The table_builder object contains an item table which
-#' is the current table being built.
-#'
-#' Column and row headers are attached as attributes to each table
-#' constructed are are tables in their own right that should match
-#' the proper dimension of the contained table. When later flattening
-#' a table of embedded tables, only the left and top most headers are
-#' used.
-#'
-#' The table builder also has a cursor which maintains the state
-#' of where cell items are being written in table construction. It
-#' is possible to move the cursor into undefined portions of the table.
-#' Therefore it is best to use cursor movement to move in defined
-#' rows or columns of information.
-#'
-#' @param column character; Value to use for indexing
-#' @param embedded logical; is this to be embedded in another table
-#' @param FUN the function to use in iteration
-#' @param n integer; Number of positions to move cursor, defaults to 1
-#' @param ncol integer; specifies desired col
-#' @param nrow integer; specifies desired row
-#' @param row character; Value to use for indexing
-#' @param sub logical; treat as subheader if after first header, defaults to TRUE
-#' @param table_builder The table builder object to modify
-#' @param x any; a value to use for a cell in operation
-#' @param X list or vector; items to iterate over
-#' @param ... object; the elements to add or additional values to pass to FUN
-#' @return the modified table_builder
-#' @examples
-#' library(magrittr)
-#' table_builder()                        %>%
-#' col_header("One","Two","Three","Four") %>%
-#' row_header("A",   "B",   "C")          %>%
-#' write_cell("A1")                       %>%
-#' cursor_right()                         %>%
-#' add_col("A2", "A3")                    %>%
-#' home()                                 %>%
-#' new_line()                             %>%
-#' table_builder_apply(1:3, FUN=function(tb, x) {
-#'   tb %>% write_cell(paste0("B",x)) %>% cursor_right()
-#' })                                     %>%
-#' new_col()                              %>%
-#' add_row(paste0(c("A","B","C"), 4))     %>%
-#' cursor_up(2)                           %>%
-#' line_feed()                            %>%
-#' cursor_left(3)                         %>%
-#' add_col(paste0("C", 1:4))
+#' @rdname table_builder
+#' @param caption character; caption of table
+#' @param id character; id of table
+#' @param footnote character; footnote to add
+#' @param FUN function; function to apply
+#' @param n numeric; number of times to perform operation
+#' @param ncol numeric; number of columns
+#' @param nrow numeric; number of rows
+#' @param style character; styling in compiling table and in rendering
+#' @param sub logical; Is this a subheader
+#' @param table tangram; The tangram table being built
+#' @param x object of focus in operation
+#' @param ... additional argument passed
+#' @export
+col_header <- function(table, ..., sub=TRUE) new_header(table, "col_header", sub, ...)
+
 #' @rdname table_builder
 #' @export
-table_builder <- function(row=NA, column=NA, embedded=FALSE)
+row_header <- function(table, ..., sub=TRUE) new_header(table, "row_header", sub, ...)
+
+#' @rdname table_builder
+#' @export
+write_cell <- function(table, x, ...)
 {
-  x <- list(nrow=1, ncol=1, table=tangram(1,1,embedded), row=row, col=column)
-  class(x) <- c("table_builder", "list")
-  x
+  if(attr(table, "row") > length(table)) table[[attr(table, "row")]] <- list()
+
+# FIXME IS ROW / COL REFERENCE STILL NEEDED?
+#  table$table[[attr(table, "row")]][[attr(table, "col")]] <- cell(x, row=table$row, col=table$col, ...)
+  table[[attr(table, "row")]][[attr(table, "col")]] <- cell(x, ...)
+  table
 }
 
 #' @rdname table_builder
 #' @export
-col_header <- function(table_builder, ..., sub=TRUE) new_header(table_builder, "col_header", sub, ...)
-
-#' @rdname table_builder
-#' @export
-row_header <- function(table_builder, ..., sub=TRUE) new_header(table_builder, "row_header", sub, ...)
-
-#' @rdname table_builder
-#' @export
-write_cell <- function(table_builder, x, ...)
+home <- function(table)
 {
-  if(table_builder$nrow > length(table_builder$table))
-  {
-    table_builder$table[[table_builder$nrow]] <- list()
-  }
-  table_builder$table[[table_builder$nrow]][[table_builder$ncol]] <- cell(x, row=table_builder$row, col=table_builder$col, ...)
-  table_builder
+  attr(table,"col") <- 1
+  attr(table,"row") <- 1
+  table
 }
 
 #' @rdname table_builder
 #' @export
-home <- function(table_builder)
+cursor_up <- function(table, n=1)
 {
-  table_builder$ncol <- 1
-  table_builder$nrow <- 1
-  table_builder
+  attr(table,"row") <- attr(table,"row") - n
+  if(attr(table,"row") <= 0) stop("cursor_up beyond available cells")
+  table
 }
 
 #' @rdname table_builder
 #' @export
-cursor_up <- function(table_builder, n=1)
+cursor_down <- function(table, n=1)
 {
-  table_builder$nrow <- table_builder$nrow - n
-  if(table_builder$nrow <= 0) stop("cursor_up beyond available cells")
-  table_builder
+  attr(table,"row") <- attr(table,"row") + n
+  if(attr(table,"row") <= 0) stop("cursor_down beyond available cells")
+  table
 }
 
 #' @rdname table_builder
 #' @export
-cursor_down <- function(table_builder, n=1)
+cursor_left <- function(table, n=1)
 {
-  table_builder$nrow <- table_builder$nrow + n
-  if(table_builder$nrow <= 0) stop("cursor_down beyond available cells")
-  table_builder
+  attr(table,"col") <- attr(table,"col") - n
+  if(attr(table,"col") <= 0) stop("cursor_left beyond available cells")
+  table
 }
 
 #' @rdname table_builder
 #' @export
-cursor_left <- function(table_builder, n=1)
+cursor_right <- function(table, n=1)
 {
-  table_builder$ncol <- table_builder$ncol - n
-  if(table_builder$ncol <= 0) stop("cursor_left beyond available cells")
-  table_builder
+  attr(table,"col") <- attr(table,"col") + n
+  if(attr(table,"col") <= 0) stop("cursor_right beyond available cells")
+  table
 }
 
 #' @rdname table_builder
 #' @export
-cursor_right <- function(table_builder, n=1)
-{
-  table_builder$ncol <- table_builder$ncol + n
-  if(table_builder$ncol <= 0) stop("cursor_right beyond available cells")
-  table_builder
-}
-
-#' @rdname table_builder
-#' @export
-cursor_pos <- function(table_builder, nrow, ncol)
+cursor_pos <- function(table, nrow, ncol)
 {
   if(nrow <= 0 || ncol <= 0) stop("cursor_pos does not allow negative values")
-  table_builder$ncol <- ncol
-  table_builder$nrow <- nrow
-  table_builder
+  attr(table,"col") <- ncol
+  attr(table,"row") <- nrow
+  table
 }
 
 #' @rdname table_builder
 #' @export
-carriage_return <- function(table_builder)
+carriage_return <- function(table)
 {
-  table_builder$ncol <- 1
-  table_builder
+  attr(table,"col") <- 1
+  table
 }
 
 #' @rdname table_builder
@@ -286,47 +242,43 @@ line_feed <- cursor_down
 
 #' @rdname table_builder
 #' @export
-new_line <- function(table_builder)
+new_line <- function(table)
 {
-  table_builder     %>%
+  table     %>%
   carriage_return() %>%
   line_feed()
 }
 
 #' @rdname table_builder
 #' @export
-new_row <- function(table_builder)
+new_row <- function(table)
 {
-  table_builder %>%
+  table %>%
   home()        %>%
-  cursor_down(length(table_builder$table))
+  cursor_down(length(table))
 }
 
 #' @rdname table_builder
 #' @export
-new_col <- function(table_builder)
+new_col <- function(table)
 {
-  table_builder %>%
-  home()        %>%
-  cursor_right(length(table_builder$table[[1]]) )
+  table %>% home() %>% cursor_right(length(table[[1]]))
 }
 
 #' @rdname table_builder
 #' @export
-table_builder_apply <- function(table_builder, X, FUN, ...)
+table_apply <- function(table, x, FUN, ...)
 {
-  sapply(X, FUN=function(x) {
-    table_builder <<- FUN(table_builder, x, ...)
-  })
-  table_builder
+  sapply(x, FUN=function(y) table <<- FUN(table, y, ...))
+  table
 }
 
 #' @rdname table_builder
 #' @export
-add_col <- function(table_builder, ...)
+add_col <- function(table, ...)
 {
-  table_builder %>%
-  table_builder_apply(args_flatten(...), FUN=function(tbl, object) {
+  table %>%
+  table_apply(args_flatten(...), FUN=function(tbl, object) {
     tbl %>%
     write_cell(object) %>%
     cursor_right()
@@ -335,15 +287,51 @@ add_col <- function(table_builder, ...)
 
 #' @rdname table_builder
 #' @export
-add_row <- function(table_builder, ...)
+add_row <- function(table, ...)
 {
   # Get flattened args list
-  table_builder %>%
-  table_builder_apply(args_flatten(...), FUN=function(tbl, object) {
+  table %>%
+  table_apply(args_flatten(...), FUN=function(tbl, object) {
     tbl %>%
     write_cell(object) %>%
     cursor_down()
   })
+}
+
+#' @rdname table_builder
+#' @export
+set_footnote <- function(table, footnote)
+{
+  attr(table, "footnote") <- footnote
+
+  table
+}
+
+#' @rdname table_builder
+#' @export
+set_id <- function(table, id)
+{
+  attr(table, "id") <- id
+
+  table
+}
+
+#' @rdname table_builder
+#' @export
+set_caption <- function(table, caption)
+{
+  attr(table, "caption") <- caption
+
+  table
+}
+
+#' @rdname table_builder
+#' @export
+set_style <- function(table, style)
+{
+  attr(table, "style") <- style
+
+  table
 }
 
 #' A cbind for generated table tangram objects.
@@ -411,8 +399,11 @@ rbind.tangram <- function(..., deparse.level=1)
 
   class(x) <- c("tangram", "list")
   attr(x, "embedded") <- FALSE
-  attr(x, "footnote") <- attr(elements[[i]], "footnote")
-
+  attr(x, "footnote") <- attr(elements[[1]], "footnote")
+  attr(x, "id")       <- attr(elements[[1]], "id")
+  attr(x, "caption")  <- attr(elements[[1]], "caption")
+  attr(x, "style")    <- attr(elements[[1]], "style")
+  attr(x, "args")     <- attr(elements[[1]], "args")
   x
 }
 

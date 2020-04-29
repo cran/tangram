@@ -1,5 +1,5 @@
 # tangram a general purpose table toolkit for R
-# Copyright (C) 2017 Shawn Garbett
+# Copyright (C) 2017-2018 Shawn Garbett
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,20 +14,50 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#' @importFrom htmltools htmlEscape
-htmlreference <- function(object)
+htmlsub_table <-list(
+  c("\u00A0",                                             "&nbsp;&nbsp;"),  # Special spaces
+  c("(^|[^\\\\])\\*\\*((\\\\.|[^\\*\\\\])*)\\*\\*",       "\\1<strong>\\2</strong>"),  # Bold
+  c("(^|[^\\\\])__((\\\\.|[^\\_\\\\])*)__",               "\\1<strong>\\2</strong>"),  # Bold
+  c("(^|[^\\\\])\\*((\\\\.|[^\\*\\\\])*)\\*",             "\\1<em>\\2</em>"),          # Italic
+  c("(^|[^\\\\])_((\\\\.|[^\\_\\\\])*)_",                 "\\1<em>\\2</em>"),          # Italic
+  c("(^|[^\\\\])~~((\\\\.|[^\\~\\\\])*)~~",               "\\1<del>\\2</del>"),        # Strikethrough
+  c("(^|[^\\\\])`((\\\\.|[^\\`\\\\])*)`",                 "\\1<code>\\2</code>"),      # Code
+
+  c("(^|[^\\\\])\\^((\\\\.|[^\\^\\\\])*)\\^~((\\\\.|[^~\\\\])*)~",             "\\1<span class=\"supsub\">\\2<br/>\\4</span>"),  # Super + Sub
+  c("(^|[^\\\\])~((\\\\.|[^~\\\\])+)~\\^((\\\\.|[^\\^\\\\])*)\\^",             "\\1<span class=\"supsub\">\\4<br/>\\2</span>"),  # Sub + Super
+
+  c("(^|[^\\\\])~((\\\\.|[^~\\\\])+)~",                   "\\1<sub>\\2</sub>"),        # Subscript
+  c("(^|[^\\\\])\\^((\\\\.|[^\\^\\\\])+)\\^",             "\\1<sup>\\2</sup>"),        # Superscript
+
+  c("(^|[^\\\\])\\\\frac{([^}]*)}{([^}]*)}",              "\\1&nbsp;<span class=\"fraction\"><span class=\"numerator\">\\2</span>/<span class=\"denominator\">\\3</span></span>"),# Make fractions
+  c("\\\\(.)",                                            "\\1")         # convert escaped characters
+)
+
+# Convert a td string to th
+th <- function(x, fixed_thead)
 {
-  if(is.null(attr(object,"reference"))) "" else
-    paste0("<sup>", htmlEscape(attr(object, "reference")), "</sup>")
+  x <- gsub("</td>", "</th>", x)
+  if(fixed_thead)
+    gsub("<td", "<th style=\"position:sticky;top:0;background-color: #FFFFFF;\"", x)
+  else
+    gsub("<td", "<th", x)
 }
 
-# Provide the clipboard copy javascript function
-clipboard_js <- function()
+#' @include iify.R
+#' @importFrom htmltools htmlEscape
+htmlify <- function(x)
 {
-  filename <- file.path(system.file(package="tangram"), "extdata", "js", "clipboard.min.js")
-  content  <- readChar(filename, file.info(filename)$size)
+  x <- htmlEscape(x) # Use the default necessary set of escapes
 
-  paste("<script type=\"text/javascript\">", content, "</script>", sep='')
+  # Special handling of leading spaces
+  leading <- nchar(stringr::str_match(x, "^\\s+")[1,1])
+  if(is.na(leading)) leading <- 0
+  leading <- ceiling(leading/2)
+
+  x <- sub("^\\s+", paste0(rep("&nbsp;&nbsp;&nbsp;&nbsp;", leading), collapse=""), x)
+
+  # Apply set of regexs to text
+  iify(x, htmlsub_table)
 }
 
 #' Return a CSS file as a string
@@ -58,10 +88,10 @@ custom_css <- function(filename, id=NA)
     stop(paste("cannot open file '", filename, "': No such file or directory", sep=''))
   }
 
-  if(is.na(id)) return(content)
+  if(is.null(id) || is.na(id) || id==" " || id=="") return(content)
 
   # sub in a given id
-  gsub("\\n([a-zA-Z.#])", paste("\n#",id," \\1",sep=''), paste("\n",content,sep=''), perl=TRUE)
+  gsub("\\n([a-zA-Z.#])", paste("\n    #",id," \\1",sep=''), paste("\n",content,sep=''), perl=TRUE)
 }
 
 # Helper function to include extra fonts
@@ -83,17 +113,21 @@ html5_extra_fonts <- function()
 #' @param id A unique identifier for traceability in indexing
 #' @param ... additional arguments to renderer.
 #' @export
-html5 <- function(object, id, ...)
-{
-  UseMethod("html5", object)
-}
+html5 <- function(object, id, ...) UseMethod("html5", object)
 
 # Helper function to turn a vector of strings into html5 class specifier
-html5_class <- function(classes)
+html5_class <- function(classes, attrs)
 {
-  paste0("class=\"",
-         paste(classes[!is.na(classes)], collapse=" "),
-         "\"")
+  cls <- if(is.null(classes)) "" else
+           paste0(" class=\"", paste(classes[!is.na(classes)], collapse=" "), "\"")
+
+  rsp <- if(is.null(attrs[['rowspan']])) "" else
+           paste0(" rowspan=\"", attrs[['rowspan']], "\"")
+
+  csp <- if(is.null(attrs[['colspan']])) "" else
+           paste0(" colspan=\"", attrs[['colspan']], "\"")
+
+  paste0(cls, rsp, csp)
 }
 
 #' Default conversion to HTML5 for an abstract table element
@@ -127,6 +161,25 @@ html5.character <- function(object, id, ..., class=NA)
   html5.cell(object, id, ..., class=class)
 }
 
+#' Default conversion to HTML5 for a logical cell
+#'
+#' Produces table cell or nothing if it's an NA. This is useful
+#' for dealing with rowspan and colspan.
+#'
+#' @param object The cell to render to HTML5
+#' @param id A unique identifier for traceability
+#' @param ... additional arguments to renderer. Unused
+#' @param class An additional class attribute for the HTML5 element
+#' @return An empty html5 td of the given class
+#' @export
+html5.logical <- function(object, id, ..., class=NA)
+{
+  if(is.na(object)) return("") # Deal with rowspan / colspan
+
+  if(object) html5.character("True", id, ..., class=class) else
+             html5.character("False",id, ..., class=class)
+}
+
 #' Convert a tangram class into an HTML5 string
 #'
 #' Given a tangram class, a series of conversion creates an HTML5
@@ -138,60 +191,75 @@ html5.character <- function(object, id, ..., class=NA)
 #' @param object The cell table to render to HTML5
 #' @param id A unique identifier for the table (strongly recommended). If not provided, caption will be used.
 #' @param caption A string caption for the table
-#' @param css A string that is the href to the css for complete HTML5
 #' @param fragment A boolean flag that determines whether a fragment or a complete HTML5 document is generatedf
-#' @param inline A string containing a filename to include as inline CSS. It first searches the drive for the file, if that fails it looks inside the package for a matching css file.
+#' @param style A string containing a style filename to include as inline CSS. It first searches the drive for the file, if that fails it looks inside the package for a matching css file.
 #' @param footnote Any footnotes to include under the table.
+#' @param fixed_thead logical; fixes the header using position sticky in CSS defaults to FALSE
+#' @param inline DEPRECATED
 #' @param ... additional arguments to renderer. Unused
 #' @return A text string rendering of the given table in HTML5
 #' @export
-html5.tangram <- function(object, id=NA, caption=NA, css=NA, fragment=TRUE, inline=NA, footnote=NA, ...)
+html5.tangram <- function(object, id=NULL, caption=NULL, fragment=NULL, style=NULL, footnote=NULL, inline=NULL, fixed_thead=NULL, ...)
 {
-  if(!is.na(css)) css <- paste("<link rel=\"stylesheet\" type=\"text/css\" href=\"", css, "\"/>", sep='')
-  if(is.na(id))
+  # Unused at present
+  #if(!is.na(css)) css <- paste("<link rel=\"stylesheet\" type=\"text/css\" href=\"", css, "\"/>", sep='')
+
+  if(is.null(id))          id          <- attr(object, "id")
+  if(is.null(fragment))    fragment    <- attr(object, "fragment")
+  if(is.null(fragment))    fragment    <- TRUE
+  if(is.null(caption))     caption     <- attr(object, "caption")
+  if(is.null(style))       style       <- attr(object, "style")
+  if(is.null(fixed_thead)) fixed_thead <- attr(object, "fixed_thead")
+  if(is.null(fixed_thead)) fixed_thead <- FALSE
+
+  if(!is.null(inline))
   {
-    warning("No id specified for later traceability of table elements")
+    warning("Deprecated inline argument to tangram::html5() call. Use style instead.")
+    if(is.null(style))
+    {
+      style <- substr(inline, 1, nchar(style)-4)
+    } else stop("inline and style argument specified in call to tangram::html5() use only style.")
+  }
+
+  # Default back to hmisc for style
+  if(is.null(style)) style <- "hmisc"
+
+  if(is.null(id))
+  {
+    warning("No unique id for table specified. CSS styling will be unstable")
     id <- ""
   }
 
-  scoped <- if(is.na(inline)) "" else paste("<style>", custom_css(inline,id=id),"</style>", sep='')
-  figdiv <- if(is.na(id)) "<div class=\"figure\">" else paste("<div class=\"figure\" id=\"", id,"\">",sep='')
+  scoped <- if(is.na(style)) "" else paste("<style>", custom_css(paste0(style,".css"),id=id),"</style>", sep='')
+  figdiv <- if(is.null(id)) "<div class=\"figure\">" else paste("<div class=\"figure\" id=\"", id,"\">",sep='')
   fontld <- if(fragment) "" else html5_extra_fonts()
 
   header <- paste0("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">",
-                   css,
+#                   css,
                    "<link rel=\"stylesheet\" type=\"text/css\" href=\"https://cdn.rawgit.com/dreampulse/computer-modern-web-font/master/fonts.css\">",
 	                 "<title>",caption,"</title>",
                    "</head><body>")
   intro  <- paste0(fontld,
-                   clipboard_js(),
                    figdiv,
                    scoped)
-  if(!is.na(caption)) intro <- paste0(intro, "<div class=\"caption\">",caption,"</div>")
+  if(!is.null(caption)) intro <- paste0(intro, "<div class=\"caption\">",caption,"</div>")
   intro <- paste(intro,
 		              "<div class=\"figbody\">",
 			            "<table class=\"tangram\">",
                   sep='')
 
-  if(is.na(footnote) && !is.null(attr(object, "footnote")))
+  if(is.null(footnote)) footnote <- attr(object, "footnote")
+  footnote <- if(is.null(footnote)) "" else
   {
-    footnote <- attr(object, "footnote")
+    paste("<div class=\"footnote\">", paste(htmlify(footnote), collapse=" "), "</div>", sep='')
   }
-  footnote <- if(is.na(footnote)) "" else
-  {
-    paste("<div class=\"footnote\">", paste(footnote, collapse=" "), "</div>", sep='')
-  }
-
-  footnote <- gsub("\\^(.)\\^", "<sup>\\1</sup>", footnote, fixed=FALSE)
 
   if(fragment)
   {
-    footer <- paste0("</table></div>", footnote,
-                     "</div><script>new Clipboard('.data');</script>")
+    footer <- paste0("</table></div>", footnote,"</div>")
   } else {
     intro  <- paste0(header, intro)
-    footer <- paste0("</table></div>", footnote,
-                     "</div><script>new Clipboard('.data');</script></body></html>")
+    footer <- paste0("</table></div>", footnote, "</div></body></html>")
   }
 
   nrows <- rows(object)
@@ -204,6 +272,17 @@ html5.tangram <- function(object, id=NA, caption=NA, css=NA, fragment=TRUE, inli
     sapply(1:ncols, FUN=function(col) {
       if(last_header_row == 0 && !inherits(object[[row]][[col]], "cell_header")) last_header_row <<- row - 1
       text[row,col] <<- html5(object[[row]][[col]], id, ...)
+      colspan <- attr(object[[row]][[col]], "colspan")
+      if(!is.null(colspan) && colspan > 1)
+      {
+        for(i in (col+1):(col+colspan-1)) object[[row]][[i]] <<- NA
+      }
+      rowspan <- attr(object[[row]][[col]], "rowspan")
+      if(!is.null(rowspan) && rowspan > 1)
+      {
+        for(i in (row+1):(row+rowspan-1)) object[[i]][[col]] <<- NA
+      }
+
     })
   })
   pasty <- apply(text, 1, function(x) paste(x, collapse=""))
@@ -212,10 +291,10 @@ html5.tangram <- function(object, id=NA, caption=NA, css=NA, fragment=TRUE, inli
   {
     tableHdr <- "<thead>"
     sapply(1:last_header_row,
-           FUN=function(row) {
-             if(row < 2) tableHdr <<- paste(tableHdr, "<tr>", pasty[row], "</tr>", sep='')
-             else        tableHdr <<- paste(tableHdr, "<tr class=\"subheaderrow\">", pasty[row], "</tr>", sep='')
-           }
+      FUN=function(row) {
+        if(row < 2) tableHdr <<- paste(tableHdr, "<tr>", th(pasty[row], fixed_thead), "</tr>", sep='')
+        else        tableHdr <<- paste(tableHdr, "<tr class=\"subheaderrow\">", th(pasty[row], FALSE), "</tr>", sep='')
+      }
     )
     tableHdr <- paste(tableHdr, "</thead>", sep='')
   }
@@ -230,7 +309,8 @@ html5.tangram <- function(object, id=NA, caption=NA, css=NA, fragment=TRUE, inli
   )
 
   final <- paste(intro, tableHdr, tableBdy, footer, sep="\n")
-  class(final) <- c("html", "character")
+  attr(final, "knit_cacheable") <- NA
+  class(final) <- c("knit_asis", "html", "character")
   final
 }
 
@@ -263,24 +343,11 @@ html5.cell <- function(object, id, ..., class=NULL)
     paste(paste0(name, as.character(object)), collapse=sep)
   }
 
-  paste0("<td ",
-         html5_class(c(class, attr(object, "parity"))),
-         ">", my_html_escape(x), htmlreference(object), "</td>")
+  paste0("<td",
+         html5_class(c(class, attr(object, "parity")), attributes(object)),
+         ">", htmlify(x), "</td>")
 }
 
-#' @importFrom htmltools htmlEscape
-my_html_escape <- function(x)
-{
-  # Turn leading spaces into a set of non breaking html space
-  leading <- nchar(stringr::str_match(x, "^\\s+")[1,1])
-  if(is.na(leading)) leading <- 0
-  leading <- ceiling(leading/2)
-
-  gsub("^\\s+",
-    paste0(rep("&nbsp;&nbsp;&nbsp;&nbsp;", leading), collapse=""),
-    gsub("\\^(.)\\^", "<sup>\\1</sup>", htmlEscape(x), fixed=FALSE),
-    fixed=FALSE)
-}
 
 #' Convert an abstract cell_subheader object into an HTML5 string
 #'
@@ -342,96 +409,24 @@ html5.cell_label <- function(object, id, ..., class=NULL)
 
   label <- gsub("^\\s+",
                 paste0(rep("&nbsp;&nbsp;&nbsp;&nbsp;", leading), collapse=""),
-                my_html_escape(object))
+                htmlify(object))
   # Turn "*" for interaction terms into a break
   label <- gsub("\\*", "&times;<br/>&nbsp;&nbsp;", label)
 
   if(is.null(attr(object, "units")))
-      paste0("<td ",
-             html5_class(c(class, attr(object, "parity"), "tg-label")),
-             ">",
+      paste0("<td",html5_class(c(class, attr(object, "parity"), "tg-label"), attributes(object)),">",
              "<span class=\"variable\">",
              label,
-             "</span>",
-             htmlreference(object),
-             "</td>")
+             "</span></td>")
   else
-      paste0("<td ",
-             html5_class(c(class, attr(object, "parity"), "tg-label")),
-             ">",
+      paste0("<td",html5_class(c(class, attr(object, "parity"), "tg-label"), attributes(object)),">",
              "<span class=\"variable\">",
              label,
              "</span>",
              "<span class=\"units\">",
-             my_html_escape(attr(object,"units")),
-             "</span>",
-             htmlreference(object),
-             "</td>")
+             htmlify(attr(object,"units")),
+             "</span></td>")
 }
-
-#' Convert a cell_estimate object into an HTML5 string
-#'
-#' Given a cell_estimate class create an HTML5 representation.
-#'
-#' @param object The cell estimate to render to HTML5
-#' @param id A unique identifier for traceability
-#' @param ... additional arguments to renderer. Unused
-#' @param class An additional class attribute for the HTML5 element
-#' @return A text string rendering of the given estimate as a <td> with several <span>'s.
-#' @export
-html5.cell_estimate <- function(object, id, ..., class=NULL)
-{
-  idx <- index(object, id)
-
-  paste0("<td ",
-            html5_class(c(class, attr(object, "parity"), "data", "estimate")),
-            " data-clipboard-text=\"","{",idx[1]," ",idx[3],"}\"",
-            ">",
-          my_html_escape(object[[1]]),
-          " (",my_html_escape(paste0(object[[2]], collapse = ", ")),")",
-          htmlreference(object),
-          "</td>")
-}
-
-#' Convert a cell_iqr object into an HTML5 string
-#'
-#' Given a cell_iqr class create an HTML5 representation.
-#'
-#' @param object The cell iqr to render to HTML5
-#' @param id A unique identifier for traceability
-#' @param ... additional arguments to renderer. Unused
-#' @param class An additional class attribute for the HTML5 element
-#' @return A text string rendering of the given quantile as a <td> with several <span>'s.
-#' @export
-#'
-html5.cell_iqr <- function(object, id, ..., class=NULL)
-{
-  idx <- index(object, id)
-  ref <- if(is.null(attr(object,"htmlreference"))) "" else paste0("<sup>", htmlEscape(attr(object, "htmlreference")), "</sup>")
-
-  mid <- floor(length(object)/2) + 1
-  y <- as.character(object)
-  x <- y[mid] <- paste0("*", y[mid], "*")
-
-  result <- paste0(y, collapse=' ')
-
-  z <- attr(object, "msd")
-
-  result <-
-      paste0("<td class=\"", attr(object, "parity"),"\"><span ",
-         html5_class(c(class, attr(object, "parity"), "data", "quantile")),
-         ">",
-         paste0("<span class=\"q25\">", my_html_escape(object[1:(mid-1)]), "</span>", collapse=""),
-         "<span class=\"q50\">", my_html_escape(object[mid]), "</span>",
-         paste0("<span class=\"q75\">", my_html_escape(object[(mid+1):length(object)]), "</span>", collapse=""),
-         htmlreference(object))
-
-  if(is.null(z)) paste0(result, "</td>") else
-  {
-    paste0(result, '<br/><span>', my_html_escape(z[1]), '&plusmn;', my_html_escape(z[2]), "</span></td>")
-  }
-}
-
 
 #' Convert an abstract cell_n object into an HTML5 string
 #'
@@ -446,109 +441,9 @@ html5.cell_iqr <- function(object, id, ..., class=NULL)
 #'
 html5.cell_n <- function(object, id, ..., class=NULL)
 {
-  ref <- if(is.null(attr(object,"htmlreference"))) "" else paste0("<sup>", htmlEscape(attr(object, "htmlreference")), "</sup>")
-
-  idx <- index(object, id)
-
-  paste0("<td ",
-         html5_class(c(class, attr(object, "parity"), "data", "N")),
-         " data-clipboard-text=\"","{",idx[1]," N=",idx[3],"}\"",
+  paste0("<td",
+         html5_class(c(class, attr(object, "parity"), "data", "N"), attributes(object)),
          "><span class=\"N\">",
-         my_html_escape(object),
-         "</span>",
-         htmlreference(object),
-         "</td>")
+         htmlify(object),
+         "</span></td>")
 }
-
-
-#' Convert a cell_fstat object into an HTML5 string
-#'
-#' Given a cell_fstat class create an HTML5 representation.
-#'
-#' @param object The cell fstat to render to HTML5
-#' @param id A unique identifier for traceability
-#' @param ... additional arguments to renderer. Unused
-#' @param class An additional class attribute for the HTML5 element
-#' @return A text string rendering of the given fstat as a <td> with several <span>'s.
-#' @export
-html5.cell_fstat <- function(object, id, ..., class=NULL)
-{
-  idx <- index(object, id)
-  paste0(
-    "<td ",
-    html5_class(c(class, attr(object, "parity"), "data", "statistics")),
-    " data-clipboard-text=\"","{",idx[1]," ",idx[3],"}\"",
-    ">",
-    "<span class=\"statistic\"><span class=\"description\">F",
-    "<sub>",object["df1"],",",object["df2"],"</sub> = </span>",
-    object["F"], ",</span>",
-    "<span class=\"pvalue\"><span class=\"description\">P = </span>",
-    object["P"],
-    htmlreference(object),
-    "</span>",
-    "</td>"
-  )
-}
-
-
-#' Convert an abstract cell_fraction object into an HTML5 string
-#'
-#' Given a cell_fraction class create an HTML5 representation.
-#'
-#' @param object The cell fraction to render to HTML5
-#' @param id A unique identifier for traceability
-#' @param ... additional arguments to renderer. Unused
-#' @param class An additional class attribute for the HTML5 element
-#' @return A text string rendering of the given fraction as a <td> with several <span>'s.
-#' @export
-#'
-html5.cell_fraction <- function(object, id, ..., class=NULL)
-{
-  idx        <- index(object, id)
-  ratio      <- gsub("\\.", "<div class=\"align\">.</div>", object["ratio"])
-  percentage <- object["percentage"]
-  den        <- object["denominator"]
-  num        <- sprintf(paste("%",nchar(den),"s",sep=''), object["numerator"]) # Adds some spaces to match
-
-  paste0("<td class=\"", attr(object, "parity"),"\"><span ",
-               html5_class(c(class, attr(object, "parity"),  "fraction")),
-               " data-clipboard-text=\"","{",idx[1]," ",idx[3],"}\"", ">",
-           "<span class=\"ratio\">",       ratio,      "</span>",
-           "<span class=\"percentage\">",  percentage, "</span>",
-           "<span class=\"numerator\">",   num,        "</span>",
-           "<span class=\"denominator\">", den,        "</span>",
-         "</span>",htmlreference(object),"</td>")
-}
-
-#' Convert an abstract cell_chi2 object into an HTML5 string
-#'
-#' Given a cell_chi2 class create an HTML5 representation.
-#'
-#' @param object The cell chi2 to render to HTML5
-#' @param id A unique identifier for traceability
-#' @param ... additional arguments to renderer. Unused
-#' @param class An additional class attribute for the HTML5 element
-#' @return A text string rendering of the given chi2 as a <td> with several <span>'s.
-#' @export
-#'
-html5.cell_chi2 <- function(object, id, ..., class=NULL)
-{
-  idx <- index(object, id)
-
-  paste0("<td ",
-         html5_class(c(class, attr(object, "parity"), "data", "statistics")),
-         " data-clipboard-text=\"","{",idx[1]," ",idx[3],"}\"",
-         ">",
-         "<span class=\"statistic\"><span class=\"description\"><span class=\"nobr\">&chi;<span class=\"supsub\">2<br/>",
-         object[2],
-         "</span></span>",
-         " = </span>",
-         object[1],
-         ",</span><span class=\"pvalue\"><span class=\"description\">P = </span>",
-         object[3],
-         "</span>",
-          htmlreference(object),
-         "</td>"
-  )
-}
-

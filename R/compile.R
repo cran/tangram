@@ -27,17 +27,25 @@
 #' @include parser.R
 table_flatten <- function(table)
 {
-#  if((is.null(attr(table, "embedded"))    || !attr(table, "embedded"))            &&
-#     (!is.null(attr(table, "row_header")) || !is.null(attr(table, "col_header")))
-#    )
+  if(is.null(attr(table, "row_header")) &&
+     is.null(attr(table, "col_header")) &&
+     !any(sapply(table, function(y) any(sapply(y, function(z) inherits(z, "tangram")))))
+    )
+  {
+    # Nothing to flatten
+    return(table)
+  }
+
   if(!is.null(attr(table, "row_header")) ||
      !is.null(attr(table, "col_header")) ||
-     !"tangram" %in% class(table[[1]][[1]])
+     (inherits(table, "list") & inherits(table[[1]], "list") & !inherits(table[[1]][[1]], "tangram"))
   )
   {
-    x <- tangram(1, 1, FALSE)
-    attr(table, "embedded") <- TRUE
+    x <- tangram(1, 1)
     x[[1]][[1]] <- table
+    for(i in c("id", "caption", "style", "footnote", "args", "fixed_thead"))
+      attr(x, i) <- attr(table, i)
+
     table <- x
   }
 
@@ -46,14 +54,14 @@ table_flatten <- function(table)
   final_cols    <- 0
   sapply(1:rows(table), FUN=function(row) {
     element <- table[[row]][[1]]
-    if(inherits(element, "tangram") && attr(element, "embedded"))
+    if(inherits(element, "tangram"))
       final_rows <<- final_rows + length(element)
     else
       final_rows <<- final_rows + 1
   })
   sapply(1:cols(table), FUN=function(col){
     element <- table[[1]][[col]]
-    if(inherits(element, "tangram") && attr(element, "embedded"))
+    if(inherits(element, "tangram"))
       final_cols <<- final_cols + length(element[[1]])
     else
       final_cols <<- final_cols + 1
@@ -142,7 +150,7 @@ table_flatten <- function(table)
     sapply(1:cols(table), FUN=function(col) {
       element <- table[[row]][[col]]
 
-      if(inherits(element, "tangram") && attr(element, "embedded"))
+      if(inherits(element, "tangram"))
       {
         n_cols <- length(element[[1]]) # Number of columns in first row
         ## Need another double sapply here.
@@ -186,10 +194,13 @@ table_flatten <- function(table)
     output_row <<- output_row + length(table[[row]][[1]])
   })
 
-  new_tbl
+  for(i in c("id", "caption", "style", "footnote", "args","fixed_thead"))
+    attr(new_tbl, i) <- attr(table, i)
+
+  new_tbl %>% home()
 }
 
-cell_create_table <- function(ast, transforms, digits, ...)
+cell_create_table <- function(ast, transforms, digits, style, ...)
 {
   elements <- ast$terms()
 
@@ -214,7 +225,12 @@ cell_create_table <- function(ast, transforms, digits, ...)
 
       if(is.null(row$format) || is.na(row$format)) row$set_format(digits)
 
-      tbl[[row_idx]][[col_idx]] <<- transform(table_builder(row$value, column$value, TRUE), row, column, ...)$table
+      if(is.null(transforms[["Cell"]]))
+      {
+        tbl[[row_idx]][[col_idx]] <<- transform(tangram(1,1), row, column, style=style, ...)
+      } else {
+        tbl[[row_idx]][[col_idx]] <<- transform(tangram(1,1), row, column, cell_style=transforms[["Cell"]], style=style, ...)
+      }
     })
   })
 
@@ -239,18 +255,33 @@ cell_create_table <- function(ast, transforms, digits, ...)
 #' rendering. Can create tables from summary.rms(), anova.rms(), and other rms object info to create a
 #' single pretty table of model results. The rms and Hmisc packages are required.
 #'
+#' Note that additional arguments are passed to any subsequent transform. This means that a lot
+#' of possible arguments are not documented here but in the transform applied.
+#' Examine their documentations for additional possible arguments if needed.
+#'
+#' @seealso Possible transforms are (see \code{\link{hmisc}}) (*default*),
+#' \code{\link{nejm}} and \code{\link{lancet}}.
+#'
 #' @param x object; depends on S3 type, could be rows, formula, string of a formula, data.frame or numerical rows, an rms.model
+#' @param id character; A unique charcter id used to identify this table over multiple runs. No spaces.
+#' @param caption character; A string with the desired caption
+#' @param style character; Desired rendering style, currently supports "hmisc", "nejm", and "lancet". Defaults to "hmisc"
+#' @param footnote character; A vector of character strings as footnotes
 #' @param after function or list of functions; one or more functions to further process an abstract table
 #' @param as.character logical; if true data.frames all variables are passed through as.character and no numerical summary is provided.
 #' @param colheader character; Use as column headers in final table
 #' @param cols numeric; An integer of the number of cols to create
 #' @param data data.frame; data to use for rendering tangram object
 #' @param digits numeric; default number of digits to use for display of numerics
-#' @param embedded logical; Will this table be embedded inside another
-#' @param footnote character; A string to add to the table as a footnote.
+#' @param fixed_thead logical; On conversion to HTML5 should headers be treated as fixed?
+#' @param format numeric or character; Format to apply to statistic
+#' @param include_p logical; Include p-value when printing statistic
 #' @param quant numeric; A vector of quantiles to use for summaries
 #' @param msd logical; Include mean and standard deviation in numeric summary
+#' @param pformat function or character; A function to format p values
+#' @param test logical or function; Perform default test or a statistical function that will return a test result when passed a row and column
 #' @param transforms list of lists of functions; that contain the transformation to apply for summarization
+#' @param tformat numeric or character; format to apply to t-value
 #' @param rnd.digits numeric; Digits to round reference, comparison, result and CI values to. Defaults to 2.
 #' @param rnd.stats numeric; Digits to round model LR, R2, etc to. Defaults to rnd.digits.
 #' @param short.labels numeric; Named vector of variable labels to replace in interaction rows. Must be in format c("variable name" = "shortened label").
@@ -263,9 +294,9 @@ cell_create_table <- function(ast, transforms, digits, ...)
 #'
 #' @examples
 #' tangram(1, 1)
-#' tangram(data.frame(x=1:3, y=c('a','b','c')))
-#' tangram(drug ~ bili + albumin + protime + sex + age + spiders, pbc)
-#' tangram("drug ~ bili + albumin + stage::Categorical + protime + sex + age + spiders", pbc)
+#' tangram(data.frame(x=1:3, y=c('a','b','c')), id="mytbl1")
+#' tangram(drug ~ bili + albumin + protime + sex + age + spiders, pbc, id="mytbl2")
+#' tangram("drug~bili+albumin+stage::Categorical+protime+sex+age+spiders", pbc,"mytbl3")
 tangram <- function(x, ...)
 {
   UseMethod("tangram", x)
@@ -273,29 +304,55 @@ tangram <- function(x, ...)
 
 #' @rdname tangram
 #' @export
-tangram.numeric <- function(x, cols, embedded=FALSE, ...)
+tangram.numeric <- function(x, cols, id=NULL, caption=NULL, style="hmisc", footnote=NULL, fixed_thead=NULL, ...)
 {
   # A list of lists
-  result <- lapply(1:x, function(x) {lapply(1:cols, function(y) cell("")) })
+  result <- lapply(1:x, function(x) {lapply(1:cols, function(y) cell("", ...)) })
   class(result) <- c("tangram", "list")
-  attr(result, "embedded") <- embedded
+
+  attr(result, "id")       <- id
+  attr(result, "caption")  <- caption
+  attr(result, "style")    <- style
+  attr(result, "footnote") <- footnote
+  attr(result, "args")     <- list(...)
+  attr(result, "fixed_thead") <- fixed_thead
+  attr(result, "row")      <- 1
+  attr(result, "col")      <- 1
 
   result
 }
 
 #' @rdname tangram
 #' @export
-tangram.data.frame <- function(x, colheader=NA, ..., quant=seq(0,1,0.25), msd=TRUE, as.character=NULL)
+tangram.anova.lme <- function(x, id=NULL, style="hmisc", caption=NULL, footnote=NULL, digits=NULL, fixed_thead=NULL, ...)
+{
+  y <- x
+  y$call <- NULL
+  class(y) <- "data.frame"
+
+  if(is.null(digits)) digits = 3
+  y[] <- lapply(y, function(z) render_f(z,digits))
+
+  y$Model <- x$Model
+
+  tangram.data.frame(y, id, caption=caption, footnote=footnote, style=style, as.character=TRUE, fixed_thead=fixed_thead, ...)
+}
+
+#' @rdname tangram
+#' @export
+tangram.data.frame <- function(x, id=NULL, colheader=NA, caption=NULL, style="hmisc", footnote=NULL, after=NA, quant=seq(0,1,0.25), msd=TRUE, as.character=NULL, fixed_thead=NULL, ...)
 {
   cls <- sapply(names(x), function(y) class(x[1,y]))
 
+  if(is.null(id) && "knitr" %in% .packages()) id <- knitr::opts_current$get("label")
+  if(is.null(id)) warning("tangram() will require unique id to be specified in the future")
   if(is.null(as.character)) as.character <- !any(!cls %in% c("character", "NULL", "labelled"))
 
   # Check for non-character
   if(!as.character)
   {
     nms <- names(cls)[cls %in% c("integer", "factor", "numeric")]
-    return(tangram(paste0("1~", paste0(nms, collapse='+')), x, quant=quant, msd=msd, ...))
+    return(tangram(paste0("1~", paste0(nms, collapse='+')), x, id=id, caption=caption, style=style, footnote=footnote, after=after, quant=quant, msd=msd, fixed_thead=fixed_thead, ...))
   }
 
   width   <- length(colnames(x)) + 1
@@ -337,19 +394,48 @@ tangram.data.frame <- function(x, colheader=NA, ..., quant=seq(0,1,0.25), msd=TR
     tbl <- del_col(tbl, 1)
   }
 
+  attr(tbl, "id")       <- id
+  attr(tbl, "caption")  <- caption
+  attr(tbl, "style")    <- style
+  attr(tbl, "footnote") <- footnote
+  attr(tbl, "args")     <- list(...)
+  attr(tbl, "fixed_thead") <- fixed_thead
+  attr(tbl, "row")      <- 1
+  attr(tbl, "col")      <- 1
+
+  if(suppressWarnings(all(is.na(after)))) {return(tbl)}
+
+  # Post function processing
+  if(inherits(after,"list")) sapply(as.list(after), function(f) tbl <<- f(tbl)) else tbl <- after(tbl)
+
   tbl
 }
 
 #' @rdname tangram
 #' @export
-tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, digits=NA, ...)
+tangram.formula <- function(x, data=NULL, id=NULL, transforms=NULL, caption=NULL, style="hmisc", footnote=NULL, after=NA, digits=NA, fixed_thead=NULL, ...)
 {
-  if(length(class(data)) > 1 || class(data) != "data.frame") data <- as.data.frame(data)
-  if(length(class(data)) > 1 || class(data) != "data.frame") stop("data must be supplied as data frame")
+  if(!is.null(data) && (length(class(data)) > 1 || !inherits(data,"data.frame"))) data <- as.data.frame(data)
+  if(!is.null(data) && (length(class(data)) > 1 || !inherits(data,"data.frame"))) stop("data must be supplied as data frame")
+  if(is.null(id) && "knitr" %in% .packages()) id <- knitr::opts_current$get("label")
+  if(is.null(id)) warning("tangram() will require unique id to be specified in the future")
+  if(is.null(transforms)) transforms <- get(style, envir=globalenv())
+  if(is.null(transforms)) transforms <- get(style)
 
   # Helper function for single transform function
   if(!inherits(transforms, "list"))
   {
+    if(length(formals(transforms)) == 2)
+    {
+      f <- transforms
+      transforms <- function(table, row, column, cell_style, ...) {
+          table                            %>%
+          col_header(derive_label(column)) %>%
+          row_header(derive_label(row))    %>%
+          add_row(f(row$data, column$data))
+      }
+    }
+
     transforms <- list(
       Type = function(x) {"Data"}, # Short circuit data type determination
       Data = list(
@@ -359,62 +445,232 @@ tangram.formula <- function(x, data, transforms=hmisc_style, after=NA, digits=NA
       ASTMultiply = list(
         Data = transforms,
         ASTMultiply = transforms
-      )
+      ),
+      Cell = NULL
     )
   }
 
   tbl <- cell_create_table(Parser$new()$run(x)$reduce(data)$distribute(),
                            transforms,
                            digits,
+                           style,
                            ...)
+
+  attr(tbl, "id")       <- id
+  attr(tbl, "caption")  <- caption
+  attr(tbl, "style")    <- style
+  attr(tbl, "footnote") <- if(is.null(footnote)) attr(tbl, "footnote") else footnote
+  attr(tbl, "args")     <- list(...)
+  attr(tbl, "fixed_thead") <- fixed_thead
+  attr(tbl, "row")      <- 1
+  attr(tbl, "col")      <- 1
 
   if(suppressWarnings(all(is.na(after)))) {return(tbl)}
 
   # Post function processing
-  if(class(after) == "list") sapply(as.list(after), function(f) tbl <<- f(tbl)) else tbl <- after(tbl)
+  if(inherits(after,"list")) sapply(as.list(after), function(f) tbl <<- f(tbl)) else tbl <- after(tbl)
 
   tbl
 }
 
 #' @rdname tangram
 #' @export
-tangram.character <- function(x, data, transforms=hmisc_style, after=NA, digits=NA, ...)
+tangram.character <- function(x, ...)
 {
-  tangram.formula(x, data, transforms, after, digits, ...)
+  tangram.formula(trimws(x), ...)
 }
 
 #' @rdname tangram
+#' @importFrom stats mantelhaen.test
+#' @param percents logical; Display percents when rendering a table object. Defaults to FALSE
 #' @export
-tangram.table <- function(x, ...)
+tangram.table <- function(
+  x,
+  id       = NULL,
+  percents = FALSE,
+  digits   = 1,
+  test     = FALSE,
+  footnote = NULL,
+  ...)
 {
-  tbl <- tangram(1,1)
+  dimension <- if(is.null(dim(x))) 1 else length(dim(x))
 
-  if(is.null(dim(x)) || length(dim(x)) == 1)
+  if(is.function(test))
   {
-    tbl[[1]][[1]] <- cell_header("")
-    sapply(1:length(x), function(i) tbl[[1]][[i+1]] <<- cell_header(names(x)[i]))
-    tbl[[2]] <- list(cell_header(if(is.null(attr(x, "label"))) "" else attr(x, "label")))
-    sapply(1:length(x), function(i) tbl[[2]][[i+1]] <<- cell(as.numeric(x[i])))
-  } else if(length(dim(x)) == 2)
+    stat <- test(x)
+    test <- TRUE
+  } else if(test)
   {
-    tbl[[1]][[1]] <- cell_header("")
-    sapply(1:(dim(x)[1]), function(i) tbl[[1]][[i+1]] <<- cell_header(colnames(x)[i]))
+    if(dimension <= 2)
+    {
+      result <- chisq.test(x)
+      stat   <- hmisc_chi2(render_f(result$statistic, digits),
+                           result$parameter,
+                           hmisc_p(result$p.value))
+      if(is.null(footnote)) footnote <- "^2^\u03a7^2^ Contingency table test"
+    } else if (dimension <= 4)
+    {
+      result <- mantelhaen.test(x)
+      stat  <- if(!is.na(result$statistic))
+      {
+         cell(paste0("M^2^=", render_f(result$statistic, digits),
+                     ", df=", result$parameter,
+                     ", ",    hmisc_p(result$p.value), "^1^"),
+              class="statistics",
+              ...)
+      } else cell("\u2014", ...)
 
-    sapply(1:(dim(x)[1]), function(i) {
-      tbl[[i+1]] <<- list(cell_header(if(is.null(rownames(x))) "" else rownames(x)[i]))
-      sapply(1:(dim(x)[2]), function(j) tbl[[i+1]][[j+1]] <<- cell(as.numeric(x[i,j])))
-    })
-  } else
-  {
-    stop("Tables above 2 dimensions are not supported.")
+      if(is.null(footnote)) footnote <- "^1^Cochran-Mantel-Haenszel test"
+    }
   }
 
+  tbl <- tangram(1,1, id=id, footnote=footnote, ...)
+
+  if(dimension == 1)
+  {
+    cols <- if(is.null(names(x))) paste("Level", 1:length(x)) else names(x)
+    tbl[[1]] <- lapply(cols, cell_header, USE.NAMES=FALSE)
+    tbl[[2]] <- lapply(x, cell)
+  } else if(dimension == 2)
+  {
+    rows     <- if(is.null(rownames(x))) paste("Level", 1:dim(x)[1]) else dimnames(x)[[1]]
+    rows     <- sapply(rows, function(y) cell_header(y), USE.NAMES=FALSE)
+    cols     <- if(is.null(colnames(x))) paste("Level", 1:dim(x)[2]) else dimnames(x)[[2]]
+    tbl[[1]] <- lapply(c("", cols), cell_header, USE.NAMES=FALSE)
+
+    for(i in 1:(dim(x)[1]))
+    {
+      denom <- colSums(x)
+      tbl[[i+1]] <- if(percents)
+      {
+        pcnt  <- paste0(" (", render_f(100*x[i,] / denom, digits), ")")
+        lapply(c("", paste0(x[i,],pcnt)), cell, USE.NAMES=FALSE)
+      } else
+      {
+        lapply(c("",x[i,]), cell, USE.NAMES=FALSE)
+      }
+      tbl[[i+1]][[1]] <- cell_header(rows[i])
+    }
+  } else if(dimension == 3)
+  {
+    rows <- if(is.null(rownames(x))) paste("Level", 1:dim(x)[1]) else dimnames(x)[[1]]
+    rows <- sapply(rows, function(y) cell_header(y), USE.NAMES=FALSE)
+    tbl  <- tangram(x[1,,], id=id, percents=percents, digits=digits, test=FALSE, ...) %>%
+            insert_column(0, cell_header(""), rows[1])
+    for(i in 2:(dim(x)[1]))
+    {
+      tmp <- tangram(x[i,,], id=id, percents=percents, digits=digits, test=FALSE, ...) %>%
+             insert_column(0, cell_header(""), rows[i]) %>%
+             del_row(1)
+      tbl <- rbind(tbl, tmp)
+    }
+  } else if(dimension == 4)
+  {
+    rows <- if(is.null(rownames(x))) paste("Level", 1:dim(x)[1]) else paste0("**", dimnames(x)[[1]], "**")
+    rows <- sapply(rows, function(y) cell_header(y), USE.NAMES=FALSE)
+    tbl  <- tangram(x[1,,,], id=id, percents=percents, digits=digits, test=FALSE, ...) %>%
+            insert_column(0, "", rows[1], class="cell_header")
+    for(i in 2:(dim(x)[1]))
+    {
+      tmp <- tangram(x[i,,,], id=id, percents=percents, digits=digits, test=FALSE, ...) %>%
+             insert_column(0, "", rows[i], class="cell_header") %>%
+             del_row(1)
+      tbl <- rbind(tbl, tmp)
+    }
+  } else
+  {
+    stop("tangram table conversion above 4 dimensions not supported")
+  }
+
+  if(test)
+  {
+    tbl <- new_col(tbl)
+    for(i in 1:length(tbl)) tbl <- add_row(tbl, "")
+    tbl[[1]][[length(tbl[[1]])]] <- cell_header("Test")
+    tbl[[2]][[length(tbl[[1]])]] <- stat
+  }
+
+  attr(tbl, "footnote") <- footnote
+
   tbl
+}
+
+#' @rdname tangram
+#' @export
+tangram.ftable <- function(x, id=NULL, ...)
+{
+  tangram.table(as.table(x), id=id, ...)
+}
+
+
+#' @rdname tangram
+#' @export
+tangram.matrix <- function(x, digits=NULL, ...)
+{
+  if(!is.null(digits)) x <- round(x, digits)
+  tangram(as.data.frame(x), as.character=TRUE, ...)
 }
 
 #' @rdname tangram
 #' @export
 tangram.tbl_df <- function(x, ...)
 {
-  tangram(as.data.frame(x), as.character=TRUE)
+  tangram(as.data.frame(x), as.character=TRUE, ...)
+}
+
+#' @rdname tangram
+#' @export
+tangram.lm <- function(x, ...) tangram(summary(x), ...)
+
+#' @rdname tangram
+#' @export
+tangram.summary.lm <- function(x, id=NULL, format=NULL, pformat=NULL, tformat=NULL, ...)
+{
+  if(is.null(pformat)) pformat <- "%1.3f"
+  if(is.null(tformat)) tformat <- 3
+  y <- as.data.frame(x$coefficients)
+  names(y) <- c("Estimate", "Std Error", "*t* statistic", "*p*-value")
+
+  y[,4] <- hmisc_p(y[,4], pformat, include_p=FALSE)
+
+  if(is.null(format))
+  {
+    format  <- if(rownames(y)[1] == "(Intercept)")
+                  format_guess(y[2:length(y[,1]),1]) else
+                  format_guess(y[,1])
+  }
+
+  y[,1] <- render_f(y[,1], format)
+  y[,2] <- render_f(y[,2], format)
+  y[,3] <- render_f(y[,3], tformat)
+
+  m <- tangram(y, id=id, as.character=TRUE, ...)
+
+  nr <- length(m) + 1
+
+  m[[nr]] <- list(cell(""), cell(""), cell(""), cell(""), cell(""))
+
+  m[[nr+1]] <- list(
+    cell_header("Residual Std Err"),
+    cell(paste0(render_f(x$sigma, 3), " on ", x$df[2], " dof")),
+    cell(""), cell(""), cell(""))
+
+  m[[nr+2]] <- list(
+    cell_header("Multiple R^2^"),
+    cell(paste0(render_f(x$r.squared, 3))),
+    cell_header("Adj R^2^"),
+    cell(paste0(render_f(x$adj.r.squared, 3))),
+    cell(""))
+
+  m[[nr+3]] <- list(
+    cell_header(paste0("F~", x$fstatistic[2], "," , x$fstatistic[3], "~")),
+    cell(render_f(unname(x$fstatistic[1]), 3)),
+    cell(""), cell(""), cell(""))
+
+  m[[nr+4]] <- list(
+    cell_header("*p*-value"),
+    cell(hmisc_p(pf(x$fstatistic[1], x$fstatistic[2], x$fstatistic[3], lower.tail=FALSE), pformat, include_p=FALSE)),
+    cell(""), cell(""), cell(""))
+
+  m
 }

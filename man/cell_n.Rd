@@ -4,12 +4,16 @@
 \alias{cell_n}
 \title{Create an cell_n (S3) object of the given statistic}
 \usage{
-cell_n(n, class = NULL, ...)
+cell_n(n, class = NULL, hdr = FALSE, possible = NULL, ...)
 }
 \arguments{
-\item{n}{The value of the X^2 statistic}
+\item{n}{The numerical value}
 
 \item{class}{character; An optional field for additional S3 classes (e.g. could be used in html rendering for CSS)}
+
+\item{hdr}{logical; Construct an n value for a header (defaults to FALSE)}
+
+\item{possible}{numerical; The total N that was possible}
 
 \item{...}{optional extra information to attach}
 }
@@ -17,7 +21,8 @@ cell_n(n, class = NULL, ...)
 A cell_n object.
 }
 \description{
-A cell_n object contains a statistical result of an X^2-test.
+A cell_n object contains an n value. Essentially, this is just a helper that appends the cell_n class to the given
+object and makes sure it's a cell S3 object as well.
 }
 \examples{
 cell_n(20)
