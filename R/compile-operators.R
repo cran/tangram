@@ -150,6 +150,7 @@ new_header <- function(table, attribute, sub, ...)
 #' @param ncol numeric; number of columns
 #' @param nrow numeric; number of rows
 #' @param style character; styling in compiling table and in rendering
+#' @param span numeric; number of rows or columns to span
 #' @param sub logical; Is this a subheader
 #' @param table tangram; The tangram table being built
 #' @param x object of focus in operation
@@ -330,6 +331,24 @@ set_caption <- function(table, caption)
 set_style <- function(table, style)
 {
   attr(table, "style") <- style
+
+  table
+}
+
+#' @rdname table_builder
+#' @export
+set_colspan <- function(table, span)
+{
+  attr(table[[attr(table,"row")]][[attr(table,"col")]], "colspan") <- span
+
+  table
+}
+
+#' @rdname table_builder
+#' @export
+set_rowspan <- function(table, span)
+{
+  attr(table[[attr(table,"row")]][[attr(table,"col")]], "rowspan") <- span
 
   table
 }

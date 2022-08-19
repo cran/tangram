@@ -22,6 +22,8 @@
 \alias{set_id}
 \alias{set_caption}
 \alias{set_style}
+\alias{set_colspan}
+\alias{set_rowspan}
 \title{A set of magrittr operators for tangram tables}
 \usage{
 col_header(table, ..., sub = TRUE)
@@ -65,6 +67,10 @@ set_id(table, id)
 set_caption(table, caption)
 
 set_style(table, style)
+
+set_colspan(table, span)
+
+set_rowspan(table, span)
 }
 \arguments{
 \item{table}{tangram; The tangram table being built}
@@ -90,6 +96,8 @@ set_style(table, style)
 \item{caption}{character; caption of table}
 
 \item{style}{character; styling in compiling table and in rendering}
+
+\item{span}{numeric; number of rows or columns to span}
 }
 \description{
 A set of magrittr operators for tangram tables

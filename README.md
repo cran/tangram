@@ -2,6 +2,12 @@
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/Tangram_set_00.jpg" width="100px"/>
 
+*Quick* show me some really impressive results in Rmarkdown! See [example.html](http://htmlpreview.github.io/?https://raw.githubusercontent.com/spgarbet/tangram-vignettes/master/example.html) or see the equivalent in LaTeX [example.pdf](https://github.com/spgarbet/tangram-vignettes/raw/master/example.pdf)
+
+## Version 0.7.x: longtable
+
+Tables are now all longtables in LaTeX. Vignettes are split to another project: [tangram-vignettes](https://github.com/spgarbet/tangram-vignettes).
+
 
 ## NOTICE: Major Refactor
 
@@ -12,7 +18,7 @@ Just a quick note that this release is a major refactor that makes the tangram c
 
 What began as an extensible library to quickly generate tables from formulas, has evolved into a library that supports magrittr `%>%` style commands on abstract table objects. The formula interface is a complicated piece of code in it's own right, but is only one of many methods now available in the generation of tables. There were a lot of lessons learned to get to this final point, and it's worth talking about what is now the core of the library, and what has become the best practices in the design of the interface.
 
-It's now been used to make 30-40 page reproducible DSMB (data safety monitoring board) reports on multiple clinical trials. Internally, several biostatistical reports are using it to improve the quality of presentation. This shakedown of formats and usage has vastly improved the overall quality of the package. See [fda-example.html](http://htmlpreview.github.io/?https://github.com/spgarbet/tg/blob/master/vignettes/fda-example.html) for some examples--don't be put off by size of the examples. They are reusable over and over for custom content devoted to a given task. These two transforms and their constructions, once built have to date been used on at least 5 different submitted reports. 
+It's now been used to make 30-40 page reproducible DSMB (data safety monitoring board) reports on multiple clinical trials. Internally, several biostatistical reports are using it to improve the quality of presentation. This shakedown of formats and usage has vastly improved the overall quality of the package. See [fda-example.html](http://htmlpreview.github.io/?https://raw.githubusercontent.com/spgarbet/tangram-vignettes/master/fda-example.html) for some examples--don't be put off by size of the examples. They are reusable over and over for custom content devoted to a given task. These two transforms and their constructions, once built have to date been used on at least 5 different submitted reports. 
 
 A tangram object is at it's heart a list of lists containing `cells` which can be subclassed from just about anything, but the best overall choice is basically a vector of  `character`, which contains text with minor extensions to Rmarkdown. There are two types of style, one is internal to a cell and it's formatting of text. The other is overall styling of a table which is a choice best left to the rendering call. The Rmarkdown/extensions supported are as follows:
 

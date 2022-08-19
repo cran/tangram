@@ -1,6 +1,6 @@
 Package: tangram
 Title: The Grammar of Tables
-Version: 0.7.1
+Version: 0.8.1
 Authors@R: c(person("Shawn",    "Garbett",  email = "Shawn.Garbett@vumc.org",        role = c("aut", "cre")),
              person("Thomas",   "Stewart",  email = "Thomas.Stewart@Vanderbilt.edu", role = c("ctb")),
              person("Jennifer", "Thompson", email = "Jennifer.L.Thompson@vumc.org",  role = c("ctb")),
@@ -32,7 +32,7 @@ LazyData: true
 Suggests: testthat, rms, rmarkdown, Hmisc, sandwich, dplyr, Matching,
         epitools
 Imports: stringi, stringr, base64enc, digest, htmltools
-RoxygenNote: 7.1.0
+RoxygenNote: 7.2.1
 Collate: 'compile-cell.R' 'cell-hmisc.R' 'cell-lancet.R' 'cell-nejm.R'
         'compile-clmm2.R' 'compile-operators.R' 'compile-post.R'
         'parser.R' 'compile.R' 'compile-rms.R' 'compile-typing.R'
@@ -44,8 +44,8 @@ Collate: 'compile-cell.R' 'cell-hmisc.R' 'cell-lancet.R' 'cell-nejm.R'
         'transform-lancet.R' 'transform-nejm.R' 'transform-proc-tab.R'
         'transform-smd.R'
 NeedsCompilation: no
-Packaged: 2020-04-28 15:55:02 UTC; garbetsp
+Packaged: 2022-08-19 16:35:41 UTC; garbetsp
 URL: https://github.com/spgarbet/tangram
 BugReports: https://github.com/spgarbet/tangram/issues
 Repository: CRAN
-Date/Publication: 2020-04-29 10:40:02 UTC
+Date/Publication: 2022-08-19 17:20:02 UTC
