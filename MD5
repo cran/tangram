@@ -1,4 +1,4 @@
-3e73defbf9e0681f4ca044685ee88db9 *DESCRIPTION
+7d6dfff961b3bd458f75df2257ff7f8a *DESCRIPTION
 f9541a6cec7163ebf8c68d5ba63025c8 *NAMESPACE
 171a06f053b75fa98ff762e410de1e24 *R/cell-hmisc.R
 8007b8a2acabbb25cc1a4a5afb0e6670 *R/cell-lancet.R
@@ -9,19 +9,19 @@ f9541a6cec7163ebf8c68d5ba63025c8 *NAMESPACE
 e8955e5ad3ffd5704c33dd13ef541e18 *R/compile-post.R
 263a514a8540671f4e509e2c47237a0b *R/compile-rms.R
 d46aaf429caf5f563ff43057dfc0efa6 *R/compile-typing.R
-1b5482b69e37378b24dfff91ddf70221 *R/compile.R
+0101db9111d28ad896e21e83c2ddc066 *R/compile.R
 de1a73c2fbfc07c74771f0ce8b99ed04 *R/helper-format.R
 7204a1b3d57a113a0cc0c4b9e4cac74e *R/hmisc-biVar.R
 9e86d9ddeda9af0f7ea66fd704c703ef *R/hmisc-cut2.R
 415b58aecb983f4211e7a80bf0df706b *R/hmisc-impute.R
 27e9f79cce08ad680eef3dbc084d5f8f *R/hmisc-lm.fit.qr.bare.R
 091332cbe70878145994da5b50e1bc88 *R/iify.R
-b4d37004677f1835fd503dd2d8747c71 *R/parser.R
+d7ca627152736eba554bc38d93c0cb00 *R/parser.R
 6c05ccf78f093b835649e3476c3721da *R/render-csv.R
 4ce5425e99bf992b0bfbdc2f6b1cbf02 *R/render-html5.R
 f7ac8adcaf3d2b5a672a9f2d13c6d1b6 *R/render-index.R
 1e5aa99aa38ec4a4e43c21ba7aa2ac62 *R/render-latex-map.R
-cd05592de0f85337eb8b56c2880e1220 *R/render-latex.R
+3d46cdf5e1587af579e09a20ee61a95e *R/render-latex.R
 c5d001429577de5ad8541e0c18268900 *R/render-rmd.R
 feffb8f4b49c018c5b6619b6b7a65013 *R/render-rtf.R
 4beeddf5bb2d4a60f9529feb2f85a034 *R/render-summary.R
@@ -31,7 +31,7 @@ a015c6257190d0252d75ef71d6a0cb71 *R/transform-lancet.R
 29b96bd050e69eb38940aa824f68e0e8 *R/transform-nejm.R
 68edc0a27b4b29ef099437a92da10547 *R/transform-proc-tab.R
 c11f61487515538f283a3d105d626317 *R/transform-smd.R
-99da6aeaf39ffffbb8c5cb020ed4475f *README.md
+bfd0809908a5eaf9d71b73ef423775a2 *README.md
 ddbc9fc30fbede76ce20969ecf4cb70a *data/pbc.rda
 5d376ee795c6d212f5a54354f4068f3d *inst/extdata/css/hmisc.css
 8d38331c3b151ad265e1e33ac11ee15e *inst/extdata/css/lancet-stripped.css
@@ -94,7 +94,7 @@ d3980cb0afc2119f8387cc37e68f06ba *man/lancet.Rd
 c912e6a7d401167e851cbfe88e4bb631 *man/lancet_cell.Rd
 95a6695915dbbe85a5fd8a9c3452a622 *man/lancet_fraction.Rd
 4dfa4e95c385a2c9d790a7471ca626c7 *man/lancet_mean_sd.Rd
-fd9b7a79efc08da2450ffa50e4839219 *man/latex.Rd
+881a1a887e344926edada76dab1477a8 *man/latex.Rd
 18c8686884db718f2e17e5be60374eb6 *man/latex_template.Rd
 1483750bd66adc9f7d83f647cab5290a *man/latexify.Rd
 9727e8f19799513588275760111a220c *man/nejm.Rd
@@ -145,6 +145,6 @@ cd5d5bd971f369a6d9ae6b33c35ca4a4 *man/summarize_nejm_vert.Rd
 5840e5ab7101189ad6a56207c26e30dc *tests/testthat/testHtmlify.R
 60fa045ba892b579beaa5456a037b02a *tests/testthat/testInterceptHmisc.R
 1cba3f03065f64093a54c4355a3e3b2f *tests/testthat/testLatexify.R
-edfb7814335a4ba9e56c0a665507eea7 *tests/testthat/testParser.R
+607768318d7d08e3c955bf1d28ca2252 *tests/testthat/testParser.R
 66cbdab8492866cd382b88157fc98df6 *tests/testthat/testTableBuilder.R
 5644a6cf6935e0c5596b6ba8b51dadd3 *tests/testthat/testTableGen.R
