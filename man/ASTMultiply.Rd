@@ -5,7 +5,7 @@
 \alias{ASTMultiply}
 \title{The multiplication of two terms, as an ASTNode.}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 The multiplication of two terms, as an ASTNode.

@@ -5,7 +5,7 @@
 \alias{ASTFunction}
 \title{A specified function call as an ASTNode}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 A specified function call as an ASTNode

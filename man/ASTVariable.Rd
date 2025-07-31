@@ -5,7 +5,7 @@
 \alias{ASTVariable}
 \title{A Variable in an Abstract Syntax Tree (AST)}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 A Variable in an Abstract Syntax Tree (AST)

@@ -57,7 +57,7 @@ ASTNode <- R6Class("ASTNode",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @examples
 #' ASTVariable$new("x", "2", "Continuous")$string()
@@ -144,7 +144,7 @@ ASTVariable <- R6Class("ASTVariable",
 #' @docType class
 #' @importFrom R6 R6Class
 #' @keywords data
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #' @field left A pointer to the left node below this one
 #' @field right A pointer to the right node below this one
 #'
@@ -167,7 +167,7 @@ ASTBranch <- R6Class("ASTBranch",
 
       return(self)
     },
-    #' @description Attached data to nodes by processing data.frame appropriatly. Recursively calls left and right nodes to reduces on data.frame
+    #' @description Attached data to nodes by processing data.frame appropriately. Recursively calls left and right nodes to reduces on data.frame
     #' @param df (data.frame) Data frame to reduce over
     reduce = function(df)
     {
@@ -185,7 +185,7 @@ ASTBranch <- R6Class("ASTBranch",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field r_expr A string containing the raw r expression from inside the parenthesis
 #' @field data Data stored as a result of reduction
@@ -242,7 +242,7 @@ ASTFunction <- R6Class("ASTFunction",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field data Just returns the R6 name 'ASTPlus'
 #' @field left The node to the left of this node
@@ -285,7 +285,7 @@ ASTPlus <- R6Class("ASTPlus",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field left  The AST tree to the left.
 #' @field right The AST tree to the right.
@@ -349,7 +349,7 @@ ASTMultiply <- R6Class("ASTMultiply",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field left  The AST tree for the columns.
 #' @field right The AST tree for the rows.
@@ -389,7 +389,7 @@ ASTTableFormula <- R6Class("ASTTableFormula",
 #' @docType class
 #' @importFrom R6 R6Class
 #' @keywords data
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field id    The token identifier, E.g. "LPAREN"
 #' @field name  Information about the token, useful with IDENTIFIERs.
@@ -415,7 +415,7 @@ Token <- R6Class("Token",
 #' @importFrom R6 R6Class
 #' @keywords data
 #' @export
-#' @format \code{\link{R6Class}} object.
+#' @format \code{\link[R6]{R6Class}} object.
 #'
 #' @field input Storage for input string of a formula
 #' @field pos   The current parsing position

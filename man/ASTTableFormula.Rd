@@ -5,7 +5,7 @@
 \alias{ASTTableFormula}
 \title{The root ASTNode of a formula.}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 The root ASTNode of a formula.

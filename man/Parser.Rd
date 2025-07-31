@@ -5,7 +5,7 @@
 \alias{Parser}
 \title{The parser class for generating abstract syntax trees for given table formulas.}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 The parser class for generating abstract syntax trees for given table formulas.

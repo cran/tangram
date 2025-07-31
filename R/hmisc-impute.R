@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 impute <- function(x, ...) UseMethod("impute")
-
+#' @exportS3Method
 impute.default <- function(x, fun=median, ...)
 {
   m <- is.na(x)
@@ -68,7 +68,7 @@ impute.default <- function(x, fun=median, ...)
             class=c('impute', attr(x, 'class')))
 }
 
-
+#' @exportS3Method
 print.impute <- function(x, ...)
 {
   i <- attr(x,"imputed")
@@ -116,7 +116,7 @@ print.impute <- function(x, ...)
 #   NextMethod("summary")
 # }
 
-
+#' @exportS3Method "[" impute
 "[.impute" <- function(x, ..., drop=FALSE)
 {
   ats <- attributes(x)
@@ -156,7 +156,7 @@ is.imputed <- function(x)
   w
 }
 
-
+#' @exportS3Method
 as.data.frame.impute <- function(x, row.names = NULL, optional = FALSE, ...)
 {
   nrows <- length(x)

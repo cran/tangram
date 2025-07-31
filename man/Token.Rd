@@ -5,7 +5,7 @@
 \alias{Token}
 \title{A token in the formula grammar}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 A token in the formula grammar

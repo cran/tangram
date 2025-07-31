@@ -7,7 +7,7 @@
 is intended to be a base class as well. Should never be instantiated directly
 as once again the semantic information is contained in the class name.}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 A left/right branch in an Abstract Syntrax Tree. This inherits from ASTNode, and
@@ -62,7 +62,7 @@ Call to distribute multiplication nodes, just recursively calls left and right n
 \if{html}{\out{<a id="method-ASTBranch-reduce"></a>}}
 \if{latex}{\out{\hypertarget{method-ASTBranch-reduce}{}}}
 \subsection{Method \code{reduce()}}{
-Attached data to nodes by processing data.frame appropriatly. Recursively calls left and right nodes to reduces on data.frame
+Attached data to nodes by processing data.frame appropriately. Recursively calls left and right nodes to reduces on data.frame
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{ASTBranch$reduce(df)}\if{html}{\out{</div>}}
 }

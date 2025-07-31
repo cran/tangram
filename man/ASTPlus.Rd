@@ -5,7 +5,7 @@
 \alias{ASTPlus}
 \title{The addition of two terms, in an ASTNode.}
 \format{
-\code{\link{R6Class}} object.
+\code{\link[R6]{R6Class}} object.
 }
 \description{
 The addition of two terms, in an ASTNode.

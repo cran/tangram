@@ -174,7 +174,7 @@ biVar(formula, statinfo=statinfo, data=data, subset=subset,
 }
 
 spearman2 <- function(x, ...) UseMethod("spearman2")
-
+#' @exportS3Method
 spearman2.default <- function(x, y, p=1, minlev=0,
                               na.rm=TRUE, exclude.imputed=na.rm, ...)
 {
@@ -244,6 +244,7 @@ spearman2.default <- function(x, y, p=1, minlev=0,
   x
 }
 
+#' @exportS3Method
 spearman2.formula <- function(formula, data=NULL, subset=NULL,
                               na.action=na.retain,
                               exclude.imputed=TRUE, ...)
